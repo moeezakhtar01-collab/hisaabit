@@ -104,7 +104,6 @@ export default function HomeScreen() {
       >
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
           <View>
-            <Text style={styles.greeting}>Assalam o Alaikum</Text>
             <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
           </View>
           <Pressable
@@ -208,12 +207,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 4,
-  },
-  greeting: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
-    marginBottom: 2,
   },
   monthLabel: {
     fontSize: 24,
