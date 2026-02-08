@@ -1,12 +1,50 @@
-// template
-const tintColorLight = "#2f95dc";
+const Colors = {
+  primary: '#0D6B3F',
+  primaryLight: '#14A85E',
+  primaryDark: '#094D2D',
+  accent: '#D4A843',
+  accentLight: '#E8C96A',
+  background: '#F8F9FA',
+  backgroundDark: '#0A1F14',
+  card: '#FFFFFF',
+  cardDark: '#132E1F',
+  surface: '#F0F2F5',
+  surfaceDark: '#1A3D28',
+  text: '#1A1A2E',
+  textSecondary: '#6B7280',
+  textDark: '#F5F5F5',
+  textSecondaryDark: '#9CA3AF',
+  border: '#E5E7EB',
+  borderDark: '#2A4D38',
+  danger: '#EF4444',
+  dangerLight: '#FEE2E2',
+  success: '#10B981',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
 
-export default {
+  categories: {
+    kiryana: '#0D6B3F',
+    sabziMandi: '#10B981',
+    bijliBill: '#F59E0B',
+    gasBill: '#EF4444',
+    paniBill: '#3B82F6',
+    schoolFees: '#8B5CF6',
+    transport: '#EC4899',
+    mobileRecharge: '#06B6D4',
+    medical: '#DC2626',
+    chaiNashta: '#D97706',
+    kapray: '#7C3AED',
+    rent: '#059669',
+    general: '#6B7280',
+  },
+
   light: {
-    text: "#000",
-    background: "#fff",
-    tint: tintColorLight,
-    tabIconDefault: "#ccc",
-    tabIconSelected: tintColorLight,
+    text: '#1A1A2E',
+    background: '#F8F9FA',
+    tint: '#0D6B3F',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: '#0D6B3F',
   },
 };
+
+export default Colors;
