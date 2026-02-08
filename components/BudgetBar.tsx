@@ -29,9 +29,12 @@ export default function BudgetBar({ category, spent, limit, index }: BudgetBarPr
           </View>
           <Text style={styles.categoryLabel}>{getCategoryLabel(category)}</Text>
         </View>
-        <Text style={[styles.amountText, isOverBudget && styles.overBudgetText]}>
-          {formatPKR(spent)} / {formatPKR(limit)}
-        </Text>
+        <View style={styles.rightRow}>
+          <Text style={[styles.amountText, isOverBudget && styles.overBudgetText]}>
+            {formatPKR(spent)} / {formatPKR(limit)}
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
+        </View>
       </View>
       <View style={styles.barBackground}>
         <View
@@ -85,6 +88,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.text,
+  },
+  rightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   amountText: {
     fontSize: 12,

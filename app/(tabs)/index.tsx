@@ -19,11 +19,13 @@ import SpendingChart from '@/components/SpendingChart';
 import ExpenseCard from '@/components/ExpenseCard';
 import {
   Expense,
+  MonthlyBudget,
   getExpenses,
   deleteExpense,
   getExpensesForMonth,
   getMonthKey,
   getMonthLabel,
+  getMonthlyBudget,
   formatPKR,
   getTotalExpenses,
 } from '@/lib/storage';
@@ -31,13 +33,15 @@ import {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const currentMonth = getMonthKey();
 
   const loadExpenses = useCallback(async () => {
-    const all = await getExpenses();
+    const [all, mb] = await Promise.all([getExpenses(), getMonthlyBudget(currentMonth)]);
     setExpenses(all);
-  }, []);
+    setMonthlyBudgetState(mb);
+  }, [currentMonth]);
 
   useEffect(() => {
     loadExpenses();
@@ -116,16 +120,39 @@ export default function HomeScreen() {
             <View style={[styles.summaryIconBg, { backgroundColor: Colors.primary + '15' }]}>
               <Ionicons name="calendar" size={18} color={Colors.primary} />
             </View>
-            <Text style={styles.summaryLabel}>This Month</Text>
+            <Text style={styles.summaryLabel}>Spent This Month</Text>
             <Text style={styles.summaryAmount}>{formatPKR(totalThisMonth)}</Text>
           </View>
-          <View style={styles.summaryCard}>
-            <View style={[styles.summaryIconBg, { backgroundColor: Colors.accent + '20' }]}>
-              <Ionicons name="today" size={18} color={Colors.accent} />
+          {monthlyBudget && monthlyBudget.totalLimit > 0 ? (
+            <View style={styles.summaryCard}>
+              <View style={[styles.summaryIconBg, {
+                backgroundColor: (monthlyBudget.totalLimit - totalThisMonth >= 0 ? Colors.success : Colors.danger) + '15'
+              }]}>
+                <Ionicons
+                  name="wallet"
+                  size={18}
+                  color={monthlyBudget.totalLimit - totalThisMonth >= 0 ? Colors.success : Colors.danger}
+                />
+              </View>
+              <Text style={styles.summaryLabel}>
+                {monthlyBudget.totalLimit - totalThisMonth >= 0 ? 'Remaining' : 'Over Budget'}
+              </Text>
+              <Text style={[
+                styles.summaryAmount,
+                { color: monthlyBudget.totalLimit - totalThisMonth >= 0 ? Colors.success : Colors.danger }
+              ]}>
+                {formatPKR(Math.abs(monthlyBudget.totalLimit - totalThisMonth))}
+              </Text>
             </View>
-            <Text style={styles.summaryLabel}>Today</Text>
-            <Text style={styles.summaryAmount}>{formatPKR(todayTotal)}</Text>
-          </View>
+          ) : (
+            <View style={styles.summaryCard}>
+              <View style={[styles.summaryIconBg, { backgroundColor: Colors.accent + '20' }]}>
+                <Ionicons name="today" size={18} color={Colors.accent} />
+              </View>
+              <Text style={styles.summaryLabel}>Today</Text>
+              <Text style={styles.summaryAmount}>{formatPKR(todayTotal)}</Text>
+            </View>
+          )}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>

@@ -15,6 +15,11 @@ export interface Budget {
   month: string;
 }
 
+export interface MonthlyBudget {
+  month: string;
+  totalLimit: number;
+}
+
 export interface MonthlyData {
   expenses: Expense[];
   budgets: Budget[];
@@ -22,6 +27,7 @@ export interface MonthlyData {
 
 const EXPENSES_KEY = 'hisaab_expenses';
 const BUDGETS_KEY = 'hisaab_budgets';
+const MONTHLY_BUDGET_KEY = 'hisaab_monthly_budget';
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -80,6 +86,37 @@ export async function deleteBudget(category: string, month: string): Promise<voi
   const budgets = await getBudgets();
   const filtered = budgets.filter(b => !(b.category === category && b.month === month));
   await AsyncStorage.setItem(BUDGETS_KEY, JSON.stringify(filtered));
+}
+
+export async function getMonthlyBudgets(): Promise<MonthlyBudget[]> {
+  try {
+    const data = await AsyncStorage.getItem(MONTHLY_BUDGET_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getMonthlyBudget(month: string): Promise<MonthlyBudget | null> {
+  const all = await getMonthlyBudgets();
+  return all.find(b => b.month === month) || null;
+}
+
+export async function setMonthlyBudget(budget: MonthlyBudget): Promise<void> {
+  const all = await getMonthlyBudgets();
+  const existingIndex = all.findIndex(b => b.month === budget.month);
+  if (existingIndex >= 0) {
+    all[existingIndex] = budget;
+  } else {
+    all.push(budget);
+  }
+  await AsyncStorage.setItem(MONTHLY_BUDGET_KEY, JSON.stringify(all));
+}
+
+export async function deleteMonthlyBudget(month: string): Promise<void> {
+  const all = await getMonthlyBudgets();
+  const filtered = all.filter(b => b.month !== month);
+  await AsyncStorage.setItem(MONTHLY_BUDGET_KEY, JSON.stringify(filtered));
 }
 
 export function getMonthKey(date: Date = new Date()): string {
