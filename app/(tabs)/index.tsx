@@ -129,6 +129,9 @@ export default function HomeScreen() {
               accessibilityLabel="Type expense manually"
             >
               <Ionicons name="create" size={20} color="#fff" />
+              <View style={styles.plusBadge}>
+                <Ionicons name="add" size={10} color="#fff" />
+              </View>
             </Pressable>
           </View>
         </View>
