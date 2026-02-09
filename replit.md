@@ -6,19 +6,33 @@ Hisaab is a mobile expense tracking app built specifically for Pakistani househo
 ## Architecture
 - **Frontend**: Expo React Native with Expo Router (file-based routing)
 - **Backend**: Express.js (serves landing page and API)
-- **Storage**: AsyncStorage for local data persistence
+- **Database**: PostgreSQL (Neon) via Drizzle ORM (postgres-js driver) for user accounts
+- **Storage**: AsyncStorage for local expense data persistence
+- **Auth**: express-session + connect-pg-simple + bcrypt, session-based auth
 - **Fonts**: Inter (Google Fonts)
-- **State**: useState + useEffect with polling for data refresh
+- **State**: useState + useEffect with polling for data refresh; AuthContext for auth state
 
 ## Project Structure
 - `app/(tabs)/` - Tab screens (Home, Budgets, History)
+- `app/login.tsx` - Login screen
+- `app/register.tsx` - Registration screen
+- `app/forgot-password.tsx` - Password reset request screen
 - `app/add-expense.tsx` - Modal screen for adding expenses
+- `app/voice-expense.tsx` - Voice expense entry (OpenAI Whisper + GPT-4o-mini)
 - `components/` - Reusable UI components (ExpenseCard, CategoryPill, BudgetBar, SpendingChart)
 - `lib/storage.ts` - AsyncStorage CRUD operations and category definitions
+- `lib/auth-context.tsx` - AuthProvider and useAuth hook for auth state management
+- `server/routes.ts` - API routes (auth + voice expense)
+- `server/storage.ts` - Database CRUD operations for users
+- `server/db.ts` - Drizzle ORM + postgres-js database connection
+- `shared/schema.ts` - Drizzle schema (users table)
 - `constants/colors.ts` - Theme colors with Pakistani-inspired green palette
 
 ## Key Features
+- User authentication (register, login, password reset)
+- Protected routes (auth gate in root layout)
 - Quick expense logging with PKR currency
+- Voice expense entry via AI (Whisper transcription + GPT extraction)
 - 13 Pakistani-relevant expense categories
 - Monthly budget tracking per category
 - Spending breakdown with visual charts
