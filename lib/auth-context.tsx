@@ -12,9 +12,10 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<string>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<string>;
+  resendConfirmation: (email: string) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string): Promise<string> => {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/register', baseUrl).toString(), {
       method: 'POST',
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registration failed');
-    setUser(data.user);
+    return data.message;
   };
 
   const logout = async () => {
@@ -92,6 +93,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.message;
   };
 
+  const resendConfirmation = async (email: string): Promise<string> => {
+    const baseUrl = getApiUrl();
+    const res = await fetch(new URL('/api/auth/resend-confirmation', baseUrl).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data.message;
+  };
+
   const value = useMemo(() => ({
     user,
     isLoading,
@@ -99,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     forgotPassword,
+    resendConfirmation,
   }), [user, isLoading]);
 
   return (

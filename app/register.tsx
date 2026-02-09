@@ -26,6 +26,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -39,10 +40,13 @@ export default function RegisterScreen() {
       return;
     }
     setError('');
+    setSuccessMessage('');
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await register(name.trim(), email.trim(), password);
+      const message = await register(name.trim(), email.trim(), password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccessMessage(message);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -84,79 +88,97 @@ export default function RegisterScreen() {
             </View>
           ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Name</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Your name"
-                placeholderTextColor={Colors.textSecondary + '80'}
-                autoCapitalize="words"
-                testID="register-name"
-              />
+          {successMessage ? (
+            <View style={styles.successBox}>
+              <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+              <View style={styles.successContent}>
+                <Text style={styles.successText}>{successMessage}</Text>
+                <Pressable
+                  onPress={() => router.replace('/login')}
+                  style={({ pressed }) => [styles.goToLoginBtn, pressed && { opacity: 0.8 }]}
+                >
+                  <Text style={styles.goToLoginText}>Go to Login</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" />
+                </Pressable>
+              </View>
             </View>
-          </View>
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Your name"
+                    placeholderTextColor={Colors.textSecondary + '80'}
+                    autoCapitalize="words"
+                    testID="register-name"
+                  />
+                </View>
+              </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="your@email.com"
-                placeholderTextColor={Colors.textSecondary + '80'}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                testID="register-email"
-              />
-            </View>
-          </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    placeholderTextColor={Colors.textSecondary + '80'}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    testID="register-email"
+                  />
+                </View>
+              </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Min. 6 characters"
-                placeholderTextColor={Colors.textSecondary + '80'}
-                secureTextEntry={!showPassword}
-                testID="register-password"
-              />
-              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={Colors.textSecondary}
-                />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Min. 6 characters"
+                    placeholderTextColor={Colors.textSecondary + '80'}
+                    secureTextEntry={!showPassword}
+                    testID="register-password"
+                  />
+                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textSecondary}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleRegister}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  loading && { opacity: 0.6 },
+                ]}
+                testID="register-submit"
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitText}>Create Account</Text>
+                )}
               </Pressable>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={handleRegister}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.submitButton,
-              pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              loading && { opacity: 0.6 },
-            ]}
-            testID="register-submit"
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.submitText}>Create Account</Text>
-            )}
-          </Pressable>
+            </>
+          )}
 
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Already have an account?</Text>
@@ -232,6 +254,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: Colors.danger,
+  },
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.success + '10',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.success + '25',
+  },
+  successContent: {
+    flex: 1,
+    gap: 12,
+  },
+  successText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.success,
+    lineHeight: 20,
+  },
+  goToLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  goToLoginText: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
   inputGroup: {
     gap: 6,

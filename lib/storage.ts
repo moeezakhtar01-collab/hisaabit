@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { fetch } from 'expo/fetch';
 
 export interface Expense {
   id: string;
@@ -25,98 +26,69 @@ export interface MonthlyData {
   budgets: Budget[];
 }
 
-const EXPENSES_KEY = 'hisaab_expenses';
-const BUDGETS_KEY = 'hisaab_budgets';
-const MONTHLY_BUDGET_KEY = 'hisaab_monthly_budget';
-
-function generateId(): string {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-}
-
 export async function getExpenses(): Promise<Expense[]> {
   try {
-    const data = await AsyncStorage.getItem(EXPENSES_KEY);
-    return data ? JSON.parse(data) : [];
+    const res = await apiRequest('GET', '/api/expenses');
+    return await res.json();
   } catch {
     return [];
   }
 }
 
 export async function addExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {
-  const expenses = await getExpenses();
-  const newExpense: Expense = {
-    ...expense,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  };
-  expenses.unshift(newExpense);
-  await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-  return newExpense;
+  const res = await apiRequest('POST', '/api/expenses', expense);
+  return await res.json();
 }
 
 export async function deleteExpense(id: string): Promise<void> {
-  const expenses = await getExpenses();
-  const filtered = expenses.filter(e => e.id !== id);
-  await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(filtered));
+  await apiRequest('DELETE', `/api/expenses/${id}`);
 }
 
 export async function getBudgets(): Promise<Budget[]> {
   try {
-    const data = await AsyncStorage.getItem(BUDGETS_KEY);
-    return data ? JSON.parse(data) : [];
+    const res = await apiRequest('GET', '/api/budgets');
+    const data = await res.json();
+    return data.map((b: any) => ({ category: b.category, limit: b.limit, month: b.month }));
   } catch {
     return [];
   }
 }
 
 export async function setBudget(budget: Budget): Promise<void> {
-  const budgets = await getBudgets();
-  const existingIndex = budgets.findIndex(
-    b => b.category === budget.category && b.month === budget.month
-  );
-  if (existingIndex >= 0) {
-    budgets[existingIndex] = budget;
-  } else {
-    budgets.push(budget);
-  }
-  await AsyncStorage.setItem(BUDGETS_KEY, JSON.stringify(budgets));
+  await apiRequest('POST', '/api/budgets', budget);
 }
 
 export async function deleteBudget(category: string, month: string): Promise<void> {
-  const budgets = await getBudgets();
-  const filtered = budgets.filter(b => !(b.category === category && b.month === month));
-  await AsyncStorage.setItem(BUDGETS_KEY, JSON.stringify(filtered));
+  await apiRequest('DELETE', `/api/budgets/${encodeURIComponent(category)}/${encodeURIComponent(month)}`);
 }
 
 export async function getMonthlyBudgets(): Promise<MonthlyBudget[]> {
   try {
-    const data = await AsyncStorage.getItem(MONTHLY_BUDGET_KEY);
-    return data ? JSON.parse(data) : [];
+    const res = await apiRequest('GET', '/api/monthly-budgets');
+    const data = await res.json();
+    return data.map((b: any) => ({ month: b.month, totalLimit: b.totalLimit }));
   } catch {
     return [];
   }
 }
 
 export async function getMonthlyBudget(month: string): Promise<MonthlyBudget | null> {
-  const all = await getMonthlyBudgets();
-  return all.find(b => b.month === month) || null;
+  try {
+    const res = await apiRequest('GET', `/api/monthly-budgets/${encodeURIComponent(month)}`);
+    const data = await res.json();
+    if (!data) return null;
+    return { month: data.month, totalLimit: data.totalLimit };
+  } catch {
+    return null;
+  }
 }
 
 export async function setMonthlyBudget(budget: MonthlyBudget): Promise<void> {
-  const all = await getMonthlyBudgets();
-  const existingIndex = all.findIndex(b => b.month === budget.month);
-  if (existingIndex >= 0) {
-    all[existingIndex] = budget;
-  } else {
-    all.push(budget);
-  }
-  await AsyncStorage.setItem(MONTHLY_BUDGET_KEY, JSON.stringify(all));
+  await apiRequest('POST', '/api/monthly-budgets', budget);
 }
 
 export async function deleteMonthlyBudget(month: string): Promise<void> {
-  const all = await getMonthlyBudgets();
-  const filtered = all.filter(b => b.month !== month);
-  await AsyncStorage.setItem(MONTHLY_BUDGET_KEY, JSON.stringify(filtered));
+  await apiRequest('DELETE', `/api/monthly-budgets/${encodeURIComponent(month)}`);
 }
 
 export function getMonthKey(date: Date = new Date()): string {
