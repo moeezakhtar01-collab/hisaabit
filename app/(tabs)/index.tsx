@@ -103,7 +103,7 @@ export default function HomeScreen() {
         }
       >
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
-          <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
+          <Text style={styles.appTitle}>My Expenses</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => {
@@ -129,6 +129,8 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+
+        <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
 
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -225,10 +227,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 4,
   },
-  monthLabel: {
-    fontSize: 24,
+  appTitle: {
+    fontSize: 22,
     fontFamily: 'Inter_700Bold',
     color: Colors.text,
+  },
+  monthLabel: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.textSecondary,
+    paddingHorizontal: 20,
   },
   headerActions: {
     flexDirection: 'row',
