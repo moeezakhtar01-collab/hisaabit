@@ -115,6 +115,9 @@ export default function HomeScreen() {
               accessibilityLabel="Record voice expense"
             >
               <Ionicons name="mic" size={22} color="#fff" />
+              <View style={styles.plusBadge}>
+                <Ionicons name="add" size={10} color="#fff" />
+              </View>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -239,6 +242,17 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     backgroundColor: Colors.primary,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  plusBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
