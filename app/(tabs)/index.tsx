@@ -104,37 +104,31 @@ export default function HomeScreen() {
       >
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
           <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
-        </View>
-
-        <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.actionRow}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/voice-expense');
-            }}
-            style={({ pressed }) => [styles.actionCard, styles.actionVoice, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-            testID="add-voice"
-          >
-            <View style={styles.actionIconBg}>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/voice-expense');
+              }}
+              style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.92 }] }]}
+              testID="add-voice"
+              accessibilityLabel="Record voice expense"
+            >
               <Ionicons name="mic" size={22} color="#fff" />
-            </View>
-            <Text style={styles.actionLabel}>Say It</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/add-expense');
-            }}
-            style={({ pressed }) => [styles.actionCard, styles.actionType, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-            testID="add-manual"
-          >
-            <View style={[styles.actionIconBg, { backgroundColor: Colors.accent }]}>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/add-expense');
+              }}
+              style={({ pressed }) => [styles.headerBtn, styles.headerBtnAccent, pressed && { opacity: 0.8, transform: [{ scale: 0.92 }] }]}
+              testID="add-manual"
+              accessibilityLabel="Type expense manually"
+            >
               <Ionicons name="create" size={20} color="#fff" />
-            </View>
-            <Text style={styles.actionLabel}>Type It</Text>
-          </Pressable>
-        </Animated.View>
+            </Pressable>
+          </View>
+        </View>
 
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -236,40 +230,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     color: Colors.text,
   },
-  actionRow: {
+  headerActions: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     gap: 10,
   },
-  actionCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-  },
-  actionVoice: {
-    backgroundColor: Colors.primary + '08',
-    borderColor: Colors.primary + '30',
-  },
-  actionType: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-  },
-  actionIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  headerBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
-  actionLabel: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+  headerBtnAccent: {
+    backgroundColor: Colors.accent,
   },
   summaryRow: {
     flexDirection: 'row',
