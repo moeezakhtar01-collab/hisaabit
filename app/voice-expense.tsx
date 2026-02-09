@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,16 +32,20 @@ import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/stora
 type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
 
 interface ExtractedExpense {
-  transcript: string;
   amount: number;
   category: string;
   note: string;
 }
 
+interface VoiceResult {
+  transcript: string;
+  expenses: ExtractedExpense[];
+}
+
 export default function VoiceExpenseScreen() {
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<VoiceState>('idle');
-  const [result, setResult] = useState<ExtractedExpense | null>(null);
+  const [result, setResult] = useState<VoiceResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -174,7 +179,13 @@ export default function VoiceExpenseScreen() {
         throw new Error((errData as any).error || 'Failed to process voice');
       }
 
-      const data = await res.json() as ExtractedExpense;
+      const data = await res.json() as VoiceResult;
+
+      if (!data.expenses && (data as any).amount !== undefined) {
+        const legacy = data as any;
+        data.expenses = [{ amount: legacy.amount, category: legacy.category, note: legacy.note }];
+      }
+
       setResult(data);
       setState('result');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -185,24 +196,29 @@ export default function VoiceExpenseScreen() {
     }
   };
 
-  const handleSave = async () => {
-    if (!result || result.amount <= 0) {
-      Alert.alert('Invalid Amount', 'The amount could not be determined. Please try again or add manually.');
+  const handleSaveAll = async () => {
+    if (!result || result.expenses.length === 0) return;
+
+    const validExpenses = result.expenses.filter(e => e.amount > 0);
+    if (validExpenses.length === 0) {
+      Alert.alert('Invalid Amounts', 'No valid amounts could be determined. Please try again or add manually.');
       return;
     }
 
     setSaving(true);
     try {
+      for (const expense of validExpenses) {
+        await addExpense({
+          amount: expense.amount,
+          category: expense.category,
+          note: expense.note,
+          date: new Date().toISOString(),
+        });
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await addExpense({
-        amount: result.amount,
-        category: result.category,
-        note: result.note,
-        date: new Date().toISOString(),
-      });
       router.back();
     } catch {
-      Alert.alert('Error', 'Failed to save expense.');
+      Alert.alert('Error', 'Failed to save expenses.');
       setSaving(false);
     }
   };
@@ -225,6 +241,9 @@ export default function VoiceExpenseScreen() {
   }));
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  const totalAmount = result?.expenses.reduce((sum, e) => sum + e.amount, 0) || 0;
+  const validCount = result?.expenses.filter(e => e.amount > 0).length || 0;
 
   if (permissionGranted === false) {
     return (
@@ -266,112 +285,135 @@ export default function VoiceExpenseScreen() {
         <View style={{ width: 28 }} />
       </View>
 
-      <View style={[styles.body, { paddingBottom: insets.bottom + 20 }]}>
-        {state === 'idle' && (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.idleContainer}>
-            <Text style={styles.instructionTitle}>Tap to Record</Text>
-            <Text style={styles.instructionText}>
-              Speak naturally about your expense.{'\n'}
-              For example: "Aaj kiryana ka saman liya, paanch sau rupay lagay"
-            </Text>
+      {(state === 'idle' || state === 'recording' || state === 'processing') && (
+        <View style={[styles.body, { paddingBottom: insets.bottom + 20 }]}>
+          {state === 'idle' && (
+            <Animated.View entering={FadeIn.duration(400)} style={styles.idleContainer}>
+              <Text style={styles.instructionTitle}>Tap to Record</Text>
+              <Text style={styles.instructionText}>
+                Speak naturally about your expenses.{'\n'}
+                You can mention multiple expenses at once!
+              </Text>
 
-            <Pressable
-              onPress={startRecording}
-              style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
-              testID="start-recording"
-            >
-              <Ionicons name="mic" size={36} color="#fff" />
-            </Pressable>
-
-            <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
-              <Ionicons name="create-outline" size={16} color={Colors.primary} />
-              <Text style={styles.manualLinkText}>Add manually instead</Text>
-            </Pressable>
-          </Animated.View>
-        )}
-
-        {state === 'recording' && (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.recordingContainer}>
-            <Text style={styles.recordingLabel}>Listening...</Text>
-            <Text style={styles.durationText}>{formatDuration(recordingDuration)}</Text>
-
-            <View style={styles.pulseContainer}>
-              <Animated.View style={[styles.pulseRing, pulseStyle]} />
               <Pressable
-                onPress={stopRecording}
-                style={({ pressed }) => [styles.stopButton, pressed && { transform: [{ scale: 0.95 }] }]}
-                testID="stop-recording"
+                onPress={startRecording}
+                style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                testID="start-recording"
               >
-                <View style={styles.stopSquare} />
+                <Ionicons name="mic" size={36} color="#fff" />
               </Pressable>
-            </View>
 
-            <Text style={styles.recordingHint}>Tap to stop recording</Text>
-          </Animated.View>
-        )}
+              <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
+                <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                <Text style={styles.manualLinkText}>Add manually instead</Text>
+              </Pressable>
+            </Animated.View>
+          )}
 
-        {state === 'processing' && (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.processingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.processingText}>Understanding your expense...</Text>
-            <Text style={styles.processingHint}>AI is extracting the details</Text>
-          </Animated.View>
-        )}
+          {state === 'recording' && (
+            <Animated.View entering={FadeIn.duration(300)} style={styles.recordingContainer}>
+              <Text style={styles.recordingLabel}>Listening...</Text>
+              <Text style={styles.durationText}>{formatDuration(recordingDuration)}</Text>
 
-        {state === 'result' && result && (
+              <View style={styles.pulseContainer}>
+                <Animated.View style={[styles.pulseRing, pulseStyle]} />
+                <Pressable
+                  onPress={stopRecording}
+                  style={({ pressed }) => [styles.stopButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                  testID="stop-recording"
+                >
+                  <View style={styles.stopSquare} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.recordingHint}>Tap to stop recording</Text>
+            </Animated.View>
+          )}
+
+          {state === 'processing' && (
+            <Animated.View entering={FadeIn.duration(300)} style={styles.processingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.processingText}>Understanding your expenses...</Text>
+              <Text style={styles.processingHint}>AI is extracting the details</Text>
+            </Animated.View>
+          )}
+        </View>
+      )}
+
+      {state === 'result' && result && (
+        <ScrollView
+          style={styles.resultScroll}
+          contentContainerStyle={[styles.resultContent, { paddingBottom: insets.bottom + 20 }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Animated.View entering={FadeInDown.duration(400)} style={styles.resultContainer}>
             <View style={styles.transcriptCard}>
               <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textSecondary} />
               <Text style={styles.transcriptText}>"{result.transcript}"</Text>
             </View>
 
-            <View style={styles.extractedCard}>
-              <Text style={styles.extractedTitle}>Extracted Expense</Text>
-
-              <View style={styles.extractedRow}>
-                <View style={styles.extractedIconBg}>
-                  <Ionicons name="cash-outline" size={18} color={Colors.primary} />
-                </View>
-                <View style={styles.extractedDetail}>
-                  <Text style={styles.extractedLabel}>Amount</Text>
-                  <Text style={styles.extractedValue}>{formatPKR(result.amount)}</Text>
-                </View>
+            {result.expenses.length > 1 && (
+              <View style={styles.summaryBadge}>
+                <Ionicons name="layers-outline" size={16} color={Colors.primary} />
+                <Text style={styles.summaryText}>
+                  {result.expenses.length} expenses found — Total {formatPKR(totalAmount)}
+                </Text>
               </View>
+            )}
 
-              <View style={styles.extractedDivider} />
-
-              <View style={styles.extractedRow}>
-                <View style={styles.extractedIconBg}>
-                  <Ionicons
-                    name={(CATEGORIES.find(c => c.key === result.category)?.icon || 'ellipsis-horizontal-circle') as any}
-                    size={18}
-                    color={Colors.primary}
-                  />
-                </View>
-                <View style={styles.extractedDetail}>
-                  <Text style={styles.extractedLabel}>Category</Text>
-                  <Text style={styles.extractedValue}>{getCategoryLabel(result.category)}</Text>
-                </View>
-              </View>
-
-              {result.note ? (
-                <>
-                  <View style={styles.extractedDivider} />
-                  <View style={styles.extractedRow}>
-                    <View style={styles.extractedIconBg}>
-                      <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
-                    </View>
-                    <View style={styles.extractedDetail}>
-                      <Text style={styles.extractedLabel}>Note</Text>
-                      <Text style={styles.extractedValue}>{result.note}</Text>
-                    </View>
+            {result.expenses.map((expense, index) => (
+              <View key={index} style={styles.extractedCard}>
+                {result.expenses.length > 1 && (
+                  <View style={styles.expenseNumberBadge}>
+                    <Text style={styles.expenseNumberText}>{index + 1}</Text>
                   </View>
-                </>
-              ) : null}
-            </View>
+                )}
+
+                <View style={styles.extractedRow}>
+                  <View style={styles.extractedIconBg}>
+                    <Ionicons name="cash-outline" size={18} color={Colors.primary} />
+                  </View>
+                  <View style={styles.extractedDetail}>
+                    <Text style={styles.extractedLabel}>Amount</Text>
+                    <Text style={styles.extractedValue}>{formatPKR(expense.amount)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.extractedDivider} />
+
+                <View style={styles.extractedRow}>
+                  <View style={styles.extractedIconBg}>
+                    <Ionicons
+                      name={(CATEGORIES.find(c => c.key === expense.category)?.icon || 'ellipsis-horizontal-circle') as any}
+                      size={18}
+                      color={Colors.primary}
+                    />
+                  </View>
+                  <View style={styles.extractedDetail}>
+                    <Text style={styles.extractedLabel}>Category</Text>
+                    <Text style={styles.extractedValue}>{getCategoryLabel(expense.category)}</Text>
+                  </View>
+                </View>
+
+                {expense.note ? (
+                  <>
+                    <View style={styles.extractedDivider} />
+                    <View style={styles.extractedRow}>
+                      <View style={styles.extractedIconBg}>
+                        <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                      </View>
+                      <View style={styles.extractedDetail}>
+                        <Text style={styles.extractedLabel}>Note</Text>
+                        <Text style={styles.extractedValue}>{expense.note}</Text>
+                      </View>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            ))}
 
             <Pressable
-              onPress={handleSave}
+              onPress={handleSaveAll}
               disabled={saving}
               style={({ pressed }) => [
                 styles.saveButton,
@@ -382,7 +424,11 @@ export default function VoiceExpenseScreen() {
             >
               <Ionicons name="checkmark" size={22} color="#fff" />
               <Text style={styles.saveButtonText}>
-                {saving ? 'Saving...' : 'Save Expense'}
+                {saving
+                  ? 'Saving...'
+                  : validCount > 1
+                    ? `Save All ${validCount} Expenses`
+                    : 'Save Expense'}
               </Text>
             </Pressable>
 
@@ -401,8 +447,8 @@ export default function VoiceExpenseScreen() {
               </Pressable>
             </View>
           </Animated.View>
-        )}
-      </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -540,9 +586,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
   },
+  resultScroll: {
+    flex: 1,
+  },
+  resultContent: {
+    padding: 20,
+  },
   resultContainer: {
-    width: '100%',
-    gap: 16,
+    gap: 14,
   },
   transcriptCard: {
     flexDirection: 'row',
@@ -562,6 +613,22 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 20,
   },
+  summaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.primary + '25',
+  },
+  summaryText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.primary,
+  },
   extractedCard: {
     backgroundColor: Colors.card,
     borderRadius: 16,
@@ -569,11 +636,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primary + '30',
   },
-  extractedTitle: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    marginBottom: 14,
+  expenseNumberBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseNumberText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
   extractedRow: {
     flexDirection: 'row',

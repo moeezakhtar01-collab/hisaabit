@@ -70,15 +70,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English.
+            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English. A single message may mention MULTIPLE separate expenses — you must extract ALL of them.
 
-Extract:
-1. amount: The amount in PKR (Pakistani Rupees). Convert words like "hazaar" (thousand), "sau" (hundred), "lakh" to numbers. If someone says "paanch sau" = 500, "do hazaar" = 2000, "teen sau pachaas" = 350.
+For EACH expense, extract:
+1. amount: The amount in PKR (Pakistani Rupees). Convert words like "hazaar" (thousand), "sau" (hundred), "lakh" to numbers. "paanch sau" = 500, "do hazaar" = 2000, "teen sau pachaas" = 350.
 2. category: One of these exact keys: ${categoryList}. Match based on context.
 3. note: A brief description of the expense in English.
 
-Respond ONLY with valid JSON: {"amount": number, "category": "key", "note": "description"}
-If you cannot determine the amount, use 0. If you cannot determine the category, use "general".`,
+ALWAYS respond with a JSON array, even for a single expense:
+[{"amount": number, "category": "key", "note": "description"}]
+
+Examples:
+- "kiryana ka saman liya paanch sau ka aur bijli ka bill do hazaar tha" → [{"amount":500,"category":"kiryana","note":"Grocery shopping"},{"amount":2000,"category":"bijliBill","note":"Electricity bill"}]
+- "aaj chai pi teen sau ki" → [{"amount":300,"category":"chaiNashta","note":"Tea"}]
+
+If you cannot determine the amount for an expense, use 0. If you cannot determine the category, use "general".`,
           },
           {
             role: "user",
@@ -89,25 +95,35 @@ If you cannot determine the amount, use 0. If you cannot determine the category,
 
       const content = extraction.choices[0]?.message?.content || "";
 
-      let parsed: { amount: number; category: string; note: string };
+      let expenses: { amount: number; category: string; note: string }[];
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found");
-        parsed = JSON.parse(jsonMatch[0]);
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          expenses = JSON.parse(jsonMatch[0]);
+        } else {
+          const objMatch = content.match(/\{[\s\S]*\}/);
+          if (!objMatch) throw new Error("No JSON found");
+          expenses = [JSON.parse(objMatch[0])];
+        }
+        if (!Array.isArray(expenses)) {
+          expenses = [expenses];
+        }
       } catch {
-        parsed = { amount: 0, category: "general", note: transcript };
+        expenses = [{ amount: 0, category: "general", note: transcript }];
       }
 
-      const validCategory = CATEGORIES.find(c => c.key === parsed.category);
-      if (!validCategory) {
-        parsed.category = "general";
-      }
+      const validatedExpenses = expenses.map(e => {
+        const validCategory = CATEGORIES.find(c => c.key === e.category);
+        return {
+          amount: Math.max(0, Math.round(e.amount || 0)),
+          category: validCategory ? e.category : "general",
+          note: e.note || "",
+        };
+      });
 
       return res.json({
         transcript,
-        amount: Math.max(0, Math.round(parsed.amount)),
-        category: parsed.category,
-        note: parsed.note || "",
+        expenses: validatedExpenses,
       });
     } catch (err: any) {
       console.error("Voice expense error:", err);
