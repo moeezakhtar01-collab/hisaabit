@@ -26,6 +26,9 @@ import {
   getMonthlyBudgetForUser,
   setMonthlyBudgetForUser,
   deleteMonthlyBudgetForUser,
+  updateUserName,
+  updateUserPassword,
+  deleteUserAccount,
 } from "./storage";
 import { randomBytes } from "crypto";
 
@@ -361,6 +364,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.clearCookie("connect.sid");
       return res.json({ message: "Logged out" });
     });
+  });
+
+  app.put("/api/auth/profile", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { name } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const user = await updateUserName(req.session.userId!, name.trim());
+      return res.json({ user: { id: user.id, email: user.email, name: user.name } });
+    } catch (err) {
+      console.error("Update profile error:", err);
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  app.put("/api/auth/password", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current password and new password are required" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      }
+      const user = await getUserById(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await updateUserPassword(req.session.userId!, hashedPassword);
+      return res.json({ message: "Password updated successfully" });
+    } catch (err) {
+      console.error("Change password error:", err);
+      return res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  app.delete("/api/auth/account", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ error: "Password is required" });
+      }
+      const user = await getUserById(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        return res.status(400).json({ error: "Password is incorrect" });
+      }
+      await deleteUserAccount(req.session.userId!);
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+        }
+        res.clearCookie("connect.sid");
+        return res.json({ message: "Account deleted" });
+      });
+    } catch (err) {
+      console.error("Delete account error:", err);
+      return res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  app.get("/api/auth/export", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = await getUserById(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const userExpenses = await getExpensesByUser(req.session.userId!);
+      const userBudgets = await getBudgetsByUser(req.session.userId!);
+      const userMonthlyBudgets = await getMonthlyBudgetsByUser(req.session.userId!);
+      return res.json({
+        user: { name: user.name, email: user.email },
+        expenses: userExpenses,
+        budgets: userBudgets,
+        monthlyBudgets: userMonthlyBudgets,
+      });
+    } catch (err) {
+      console.error("Export data error:", err);
+      return res.status(500).json({ error: "Failed to export data" });
+    }
   });
 
   app.get("/api/expenses", requireAuth, async (req: Request, res: Response) => {

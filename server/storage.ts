@@ -140,3 +140,19 @@ export async function deleteMonthlyBudgetForUser(userId: string, month: string):
     .returning();
   return result.length > 0;
 }
+
+export async function updateUserName(userId: string, name: string): Promise<User> {
+  const [user] = await db.update(users).set({ name }).where(eq(users.id, userId)).returning();
+  return user;
+}
+
+export async function updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+  await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  await db.delete(expenses).where(eq(expenses.userId, userId));
+  await db.delete(budgets).where(eq(budgets.userId, userId));
+  await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+  await db.delete(users).where(eq(users.id, userId));
+}
