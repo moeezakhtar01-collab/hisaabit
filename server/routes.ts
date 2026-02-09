@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 import {
   createUser,
   getUserByEmail,
@@ -52,13 +53,13 @@ if (supabaseUrl && supabaseServiceKey) {
 }
 
 async function sendConfirmationEmail(email: string, token: string) {
-  const supabaseUrlEnv = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrlEnv || !supabaseKey) {
-    console.warn("Supabase not configured, skipping confirmation email");
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.warn("RESEND_API_KEY not configured, skipping confirmation email");
     return;
   }
+
+  const resend = new Resend(resendApiKey);
 
   const appUrl = process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
@@ -93,34 +94,19 @@ async function sendConfirmationEmail(email: string, token: string) {
     </div>
   `;
 
-  const response = await fetch(`${supabaseUrlEnv}/functions/v1/send-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${supabaseKey}`,
-    },
-    body: JSON.stringify({
-      to: email,
-      subject: "Confirm your Hisaab account",
-      html: emailHtml,
-    }),
+  const { data, error } = await resend.emails.send({
+    from: "Hisaab <onboarding@resend.dev>",
+    to: [email],
+    subject: "Confirm your Hisaab account",
+    html: emailHtml,
   });
 
-  if (!response.ok) {
-    console.warn("Supabase Edge Function email failed, trying auth invite fallback...");
-    try {
-      const { error } = await supabase!.auth.admin.inviteUserByEmail(email, {
-        redirectTo: confirmUrl,
-      });
-      if (error) {
-        console.error("Supabase auth invite error:", error.message);
-        throw new Error(`Email sending failed: ${error.message}`);
-      }
-    } catch (fallbackErr) {
-      console.error("All email methods failed:", fallbackErr);
-      throw fallbackErr;
-    }
+  if (error) {
+    console.error("Resend email error:", error);
+    throw new Error(`Failed to send confirmation email: ${error.message}`);
   }
+
+  console.log("Confirmation email sent via Resend:", data?.id);
 }
 
 const CATEGORIES = [
@@ -191,14 +177,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confirmationToken,
       });
 
+      let emailSent = false;
       try {
         await sendConfirmationEmail(email.toLowerCase().trim(), confirmationToken);
-      } catch (err) {
+        emailSent = true;
+      } catch (err: any) {
         console.error("Failed to send confirmation email:", err);
       }
 
       return res.json({
-        message: "Account created! Please check your email to confirm your account before logging in.",
+        message: emailSent
+          ? "Account created! Please check your email to confirm your account before logging in."
+          : "Account created! We couldn't send a confirmation email right now. Please use the 'Resend' option on the login screen.",
         requiresConfirmation: true,
       });
     } catch (err) {
