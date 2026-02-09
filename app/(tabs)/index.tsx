@@ -8,10 +8,11 @@ import {
   Alert,
   Platform,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAddChoice, setShowAddChoice] = useState(false);
   const currentMonth = getMonthKey();
 
   const loadExpenses = useCallback(async () => {
@@ -107,8 +109,12 @@ export default function HomeScreen() {
             <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
           </View>
           <Pressable
-            onPress={() => router.push('/add-expense')}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowAddChoice(true);
+            }}
             style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
+            testID="add-expense-fab"
           >
             <Ionicons name="add" size={24} color="#fff" />
           </Pressable>
@@ -186,6 +192,56 @@ export default function HomeScreen() {
           )}
         </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={showAddChoice}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddChoice(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAddChoice(false)}>
+          <Animated.View entering={FadeIn.duration(200)} style={[styles.choiceSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.choiceHandle} />
+            <Text style={styles.choiceTitle}>Add Expense</Text>
+
+            <Pressable
+              onPress={() => {
+                setShowAddChoice(false);
+                router.push('/voice-expense');
+              }}
+              style={({ pressed }) => [styles.choiceOption, styles.choiceVoice, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+              testID="add-voice"
+            >
+              <View style={styles.choiceIconBg}>
+                <Ionicons name="mic" size={24} color="#fff" />
+              </View>
+              <View style={styles.choiceTextBlock}>
+                <Text style={styles.choiceOptionTitle}>Say It</Text>
+                <Text style={styles.choiceOptionDesc}>Speak your expense and AI will fill it in</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setShowAddChoice(false);
+                router.push('/add-expense');
+              }}
+              style={({ pressed }) => [styles.choiceOption, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+              testID="add-manual"
+            >
+              <View style={[styles.choiceIconBg, { backgroundColor: Colors.accent }]}>
+                <Ionicons name="create" size={22} color="#fff" />
+              </View>
+              <View style={styles.choiceTextBlock}>
+                <Text style={styles.choiceOptionTitle}>Type It</Text>
+                <Text style={styles.choiceOptionDesc}>Fill in the details yourself</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -287,6 +343,68 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   emptySubText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  choiceSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 12,
+  },
+  choiceHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  choiceTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  choiceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  choiceVoice: {
+    borderColor: Colors.primary + '40',
+    backgroundColor: Colors.primary + '08',
+  },
+  choiceIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  choiceOptionTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  choiceOptionDesc: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
