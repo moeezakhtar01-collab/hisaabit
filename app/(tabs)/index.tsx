@@ -247,14 +247,8 @@ const styles = StyleSheet.create({
   },
   plusBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    top: 1,
+    right: 1,
   },
   headerBtnAccent: {
     backgroundColor: Colors.accent,
