@@ -152,9 +152,10 @@ export default function VoiceExpenseScreen() {
         const blob = await response.blob();
         formData.append('audio', blob, 'recording.webm');
       } else {
-        const { File } = await import('expo-file-system');
-        const file = new File(uri);
-        (file as any).name = 'recording.m4a';
+        const FileSystem = await import('expo-file-system');
+        const newUri = FileSystem.documentDirectory + 'recording.m4a';
+        await FileSystem.copyAsync({ from: uri, to: newUri });
+        const file = new FileSystem.File(newUri);
         formData.append('audio', file as any);
       }
 
