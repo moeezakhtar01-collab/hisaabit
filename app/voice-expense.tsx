@@ -1,0 +1,691 @@
+import { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { Audio } from 'expo-av';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  cancelAnimation,
+  Easing,
+} from 'react-native-reanimated';
+import Colors from '@/constants/colors';
+import { getApiUrl } from '@/lib/query-client';
+import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/storage';
+
+type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
+
+interface ExtractedExpense {
+  transcript: string;
+  amount: number;
+  category: string;
+  note: string;
+}
+
+export default function VoiceExpenseScreen() {
+  const insets = useSafeAreaInsets();
+  const [state, setState] = useState<VoiceState>('idle');
+  const [result, setResult] = useState<ExtractedExpense | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    checkPermission();
+    return () => {
+      if (durationInterval.current) clearInterval(durationInterval.current);
+      stopRecordingSilently();
+    };
+  }, []);
+
+  const checkPermission = async () => {
+    if (Platform.OS === 'web') {
+      setPermissionGranted(true);
+      return;
+    }
+    const { status } = await Audio.getPermissionsAsync();
+    if (status === 'granted') {
+      setPermissionGranted(true);
+    } else {
+      setPermissionGranted(false);
+    }
+  };
+
+  const requestPermission = async () => {
+    const { status } = await Audio.requestPermissionsAsync();
+    setPermissionGranted(status === 'granted');
+    if (status !== 'granted') {
+      Alert.alert('Microphone Access', 'Microphone permission is needed to record voice notes.');
+    }
+  };
+
+  const stopRecordingSilently = async () => {
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+      } catch {}
+      recordingRef.current = null;
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      recordingRef.current = recording;
+      setState('recording');
+      setRecordingDuration(0);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1
+      );
+      pulseOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.6, { duration: 800 }),
+          withTiming(0.15, { duration: 800 })
+        ),
+        -1
+      );
+
+      durationInterval.current = setInterval(() => {
+        setRecordingDuration(d => d + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      Alert.alert('Error', 'Could not start recording. Please check microphone access.');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+
+    if (durationInterval.current) {
+      clearInterval(durationInterval.current);
+      durationInterval.current = null;
+    }
+
+    cancelAnimation(pulseScale);
+    cancelAnimation(pulseOpacity);
+    pulseScale.value = 1;
+    pulseOpacity.value = 0.3;
+
+    setState('processing');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      if (!uri) {
+        throw new Error('No recording URI');
+      }
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+
+      const formData = new FormData();
+
+      if (Platform.OS === 'web') {
+        const response = await globalThis.fetch(uri);
+        const blob = await response.blob();
+        formData.append('audio', blob, 'recording.m4a');
+      } else {
+        const { File } = await import('expo-file-system');
+        const file = new File(uri);
+        formData.append('audio', file as any);
+      }
+
+      const baseUrl = getApiUrl();
+      const apiUrl = new URL('/api/voice-expense', baseUrl).toString();
+      const fetchFn = Platform.OS === 'web' ? globalThis.fetch : (await import('expo/fetch')).fetch;
+
+      const res = await fetchFn(apiUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error((errData as any).error || 'Failed to process voice');
+      }
+
+      const data = await res.json() as ExtractedExpense;
+      setResult(data);
+      setState('result');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      console.error('Voice processing error:', err);
+      setState('idle');
+      Alert.alert('Could Not Process', err.message || 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!result || result.amount <= 0) {
+      Alert.alert('Invalid Amount', 'The amount could not be determined. Please try again or add manually.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await addExpense({
+        amount: result.amount,
+        category: result.category,
+        note: result.note,
+        date: new Date().toISOString(),
+      });
+      router.back();
+    } catch {
+      Alert.alert('Error', 'Failed to save expense.');
+      setSaving(false);
+    }
+  };
+
+  const handleRetry = () => {
+    setResult(null);
+    setState('idle');
+    setRecordingDuration(0);
+  };
+
+  const formatDuration = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }));
+
+  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  if (permissionGranted === false) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="close" size={28} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Voice Expense</Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <View style={styles.permissionContainer}>
+          <View style={styles.permissionIconBg}>
+            <Ionicons name="mic-off" size={40} color={Colors.textSecondary} />
+          </View>
+          <Text style={styles.permissionTitle}>Microphone Access Needed</Text>
+          <Text style={styles.permissionDesc}>
+            Allow microphone access so you can record voice notes for your expenses.
+          </Text>
+          <Pressable
+            onPress={requestPermission}
+            style={({ pressed }) => [styles.permissionButton, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name="mic" size={20} color="#fff" />
+            <Text style={styles.permissionButtonText}>Allow Microphone</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="close" size={28} color={Colors.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Voice Expense</Text>
+        <View style={{ width: 28 }} />
+      </View>
+
+      <View style={[styles.body, { paddingBottom: insets.bottom + 20 }]}>
+        {state === 'idle' && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.idleContainer}>
+            <Text style={styles.instructionTitle}>Tap to Record</Text>
+            <Text style={styles.instructionText}>
+              Speak naturally about your expense.{'\n'}
+              For example: "Aaj kiryana ka saman liya, paanch sau rupay lagay"
+            </Text>
+
+            <Pressable
+              onPress={startRecording}
+              style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
+            >
+              <Ionicons name="mic" size={36} color="#fff" />
+            </Pressable>
+
+            <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
+              <Ionicons name="create-outline" size={16} color={Colors.primary} />
+              <Text style={styles.manualLinkText}>Add manually instead</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {state === 'recording' && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.recordingContainer}>
+            <Text style={styles.recordingLabel}>Listening...</Text>
+            <Text style={styles.durationText}>{formatDuration(recordingDuration)}</Text>
+
+            <View style={styles.pulseContainer}>
+              <Animated.View style={[styles.pulseRing, pulseStyle]} />
+              <Pressable
+                onPress={stopRecording}
+                style={({ pressed }) => [styles.stopButton, pressed && { transform: [{ scale: 0.95 }] }]}
+              >
+                <View style={styles.stopSquare} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.recordingHint}>Tap to stop recording</Text>
+          </Animated.View>
+        )}
+
+        {state === 'processing' && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.processingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.processingText}>Understanding your expense...</Text>
+            <Text style={styles.processingHint}>AI is extracting the details</Text>
+          </Animated.View>
+        )}
+
+        {state === 'result' && result && (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.resultContainer}>
+            <View style={styles.transcriptCard}>
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textSecondary} />
+              <Text style={styles.transcriptText}>"{result.transcript}"</Text>
+            </View>
+
+            <View style={styles.extractedCard}>
+              <Text style={styles.extractedTitle}>Extracted Expense</Text>
+
+              <View style={styles.extractedRow}>
+                <View style={styles.extractedIconBg}>
+                  <Ionicons name="cash-outline" size={18} color={Colors.primary} />
+                </View>
+                <View style={styles.extractedDetail}>
+                  <Text style={styles.extractedLabel}>Amount</Text>
+                  <Text style={styles.extractedValue}>{formatPKR(result.amount)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.extractedDivider} />
+
+              <View style={styles.extractedRow}>
+                <View style={styles.extractedIconBg}>
+                  <Ionicons
+                    name={(CATEGORIES.find(c => c.key === result.category)?.icon || 'ellipsis-horizontal-circle') as any}
+                    size={18}
+                    color={Colors.primary}
+                  />
+                </View>
+                <View style={styles.extractedDetail}>
+                  <Text style={styles.extractedLabel}>Category</Text>
+                  <Text style={styles.extractedValue}>{getCategoryLabel(result.category)}</Text>
+                </View>
+              </View>
+
+              {result.note ? (
+                <>
+                  <View style={styles.extractedDivider} />
+                  <View style={styles.extractedRow}>
+                    <View style={styles.extractedIconBg}>
+                      <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                    </View>
+                    <View style={styles.extractedDetail}>
+                      <Text style={styles.extractedLabel}>Note</Text>
+                      <Text style={styles.extractedValue}>{result.note}</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+            </View>
+
+            <Pressable
+              onPress={handleSave}
+              disabled={saving}
+              style={({ pressed }) => [
+                styles.saveButton,
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                saving && { opacity: 0.6 },
+              ]}
+            >
+              <Ionicons name="checkmark" size={22} color="#fff" />
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Saving...' : 'Save Expense'}
+              </Text>
+            </Pressable>
+
+            <View style={styles.resultActions}>
+              <Pressable onPress={handleRetry} style={styles.retryButton}>
+                <Ionicons name="refresh" size={18} color={Colors.primary} />
+                <Text style={styles.retryText}>Try Again</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => { router.back(); router.push('/add-expense'); }}
+                style={styles.retryButton}
+              >
+                <Ionicons name="create-outline" size={18} color={Colors.primary} />
+                <Text style={styles.retryText}>Edit Manually</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+  },
+  body: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  idleContainer: {
+    alignItems: 'center',
+    gap: 20,
+  },
+  instructionTitle: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  instructionText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  recordButton: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  manualLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  manualLinkText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.primary,
+  },
+  recordingContainer: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  recordingLabel: {
+    fontSize: 20,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.primary,
+  },
+  durationText: {
+    fontSize: 40,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    letterSpacing: 2,
+  },
+  pulseContainer: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E53E3E',
+  },
+  stopButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#E53E3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  stopSquare: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  recordingHint: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+  },
+  processingContainer: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  processingText: {
+    fontSize: 18,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+  },
+  processingHint: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+  },
+  resultContainer: {
+    width: '100%',
+    gap: 16,
+  },
+  transcriptCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  transcriptText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  extractedCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  extractedTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+    marginBottom: 14,
+  },
+  extractedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  extractedIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extractedDetail: {
+    flex: 1,
+  },
+  extractedLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  extractedValue: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+  },
+  extractedDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 12,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 4,
+  },
+  saveButtonText: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  resultActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  retryText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.primary,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    gap: 16,
+  },
+  permissionIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.border + '60',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  permissionDesc: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 8,
+  },
+  permissionButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
+  },
+});
