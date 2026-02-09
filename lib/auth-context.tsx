@@ -16,6 +16,9 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<string>;
   resendConfirmation: (email: string) => Promise<string>;
+  updateProfile: (name: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -105,6 +108,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.message;
   };
 
+  const updateProfile = async (name: string) => {
+    const baseUrl = getApiUrl();
+    const res = await fetch(new URL('/api/auth/profile', baseUrl).toString(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    setUser(data.user);
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<string> => {
+    const baseUrl = getApiUrl();
+    const res = await fetch(new URL('/api/auth/password', baseUrl).toString(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Password change failed');
+    return data.message;
+  };
+
+  const deleteAccount = async (password: string) => {
+    const baseUrl = getApiUrl();
+    const res = await fetch(new URL('/api/auth/account', baseUrl).toString(), {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Account deletion failed');
+    setUser(null);
+  };
+
   const value = useMemo(() => ({
     user,
     isLoading,
@@ -113,6 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     forgotPassword,
     resendConfirmation,
+    updateProfile,
+    changePassword,
+    deleteAccount,
   }), [user, isLoading]);
 
   return (
