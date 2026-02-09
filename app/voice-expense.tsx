@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -43,9 +43,10 @@ export default function VoiceExpenseScreen() {
   const [result, setResult] = useState<ExtractedExpense | null>(null);
   const [saving, setSaving] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.3);
@@ -54,7 +55,6 @@ export default function VoiceExpenseScreen() {
     checkPermission();
     return () => {
       if (durationInterval.current) clearInterval(durationInterval.current);
-      stopRecordingSilently();
     };
   }, []);
 
@@ -63,43 +63,31 @@ export default function VoiceExpenseScreen() {
       setPermissionGranted(true);
       return;
     }
-    const { status } = await Audio.getPermissionsAsync();
-    if (status === 'granted') {
-      setPermissionGranted(true);
-    } else {
-      setPermissionGranted(false);
-    }
+    const status = await AudioModule.getRecordingPermissionsAsync();
+    setPermissionGranted(status.granted);
   };
 
   const requestPermission = async () => {
-    const { status } = await Audio.requestPermissionsAsync();
-    setPermissionGranted(status === 'granted');
-    if (status !== 'granted') {
+    const status = await AudioModule.requestRecordingPermissionsAsync();
+    setPermissionGranted(status.granted);
+    if (!status.granted) {
       Alert.alert('Microphone Access', 'Microphone permission is needed to record voice notes.');
-    }
-  };
-
-  const stopRecordingSilently = async () => {
-    if (recordingRef.current) {
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-      } catch {}
-      recordingRef.current = null;
     }
   };
 
   const startRecording = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      if (Platform.OS !== 'web') {
+        const status = await AudioModule.requestRecordingPermissionsAsync();
+        if (!status.granted) {
+          setPermissionGranted(false);
+          return;
+        }
+      }
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
 
-      recordingRef.current = recording;
       setState('recording');
       setRecordingDuration(0);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -129,8 +117,6 @@ export default function VoiceExpenseScreen() {
   };
 
   const stopRecording = async () => {
-    if (!recordingRef.current) return;
-
     if (durationInterval.current) {
       clearInterval(durationInterval.current);
       durationInterval.current = null;
@@ -145,22 +131,19 @@ export default function VoiceExpenseScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
 
       if (!uri) {
         throw new Error('No recording URI');
       }
-
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
 
       const formData = new FormData();
 
       if (Platform.OS === 'web') {
         const response = await globalThis.fetch(uri);
         const blob = await response.blob();
-        formData.append('audio', blob, 'recording.m4a');
+        formData.append('audio', blob, 'recording.webm');
       } else {
         const { File } = await import('expo-file-system');
         const file = new File(uri);
@@ -285,6 +268,7 @@ export default function VoiceExpenseScreen() {
             <Pressable
               onPress={startRecording}
               style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
+              testID="start-recording"
             >
               <Ionicons name="mic" size={36} color="#fff" />
             </Pressable>
@@ -306,6 +290,7 @@ export default function VoiceExpenseScreen() {
               <Pressable
                 onPress={stopRecording}
                 style={({ pressed }) => [styles.stopButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                testID="stop-recording"
               >
                 <View style={styles.stopSquare} />
               </Pressable>
@@ -383,6 +368,7 @@ export default function VoiceExpenseScreen() {
                 pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                 saving && { opacity: 0.6 },
               ]}
+              testID="save-voice-expense"
             >
               <Ionicons name="checkmark" size={22} color="#fff" />
               <Text style={styles.saveButtonText}>
@@ -391,7 +377,7 @@ export default function VoiceExpenseScreen() {
             </Pressable>
 
             <View style={styles.resultActions}>
-              <Pressable onPress={handleRetry} style={styles.retryButton}>
+              <Pressable onPress={handleRetry} style={styles.retryButton} testID="retry-recording">
                 <Ionicons name="refresh" size={18} color={Colors.primary} />
                 <Text style={styles.retryText}>Try Again</Text>
               </Pressable>

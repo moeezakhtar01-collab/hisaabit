@@ -199,7 +199,8 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowAddChoice(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddChoice(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowAddChoice(false)} />
           <Animated.View entering={FadeIn.duration(200)} style={[styles.choiceSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.choiceHandle} />
             <Text style={styles.choiceTitle}>Add Expense</Text>
@@ -240,7 +241,7 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
             </Pressable>
           </Animated.View>
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );
@@ -349,8 +350,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   choiceSheet: {
     backgroundColor: Colors.background,
