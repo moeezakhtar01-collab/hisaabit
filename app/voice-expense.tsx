@@ -85,6 +85,13 @@ export default function VoiceExpenseScreen() {
         }
       }
 
+      if (Platform.OS === 'ios') {
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+      }
+
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
 
