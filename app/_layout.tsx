@@ -1,9 +1,10 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { ActivityIndicator, View } from "react-native";
 import {
   useFonts,
   Inter_400Regular,
@@ -13,12 +14,41 @@ import {
 } from "@expo-google-fonts/inter";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
+import Colors from "@/constants/colors";
 
 SplashScreen.preventAutoHideAsync();
 
-function RootLayoutNav() {
+function AuthGate() {
+  const { user, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuth = segments[0] === "login" || segments[0] === "register" || segments[0] === "forgot-password";
+
+    if (!user && !inAuth) {
+      router.replace("/login");
+    } else if (user && inAuth) {
+      router.replace("/");
+    }
+  }, [user, isLoading, segments]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.background }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="add-expense"
@@ -59,11 +89,13 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
-          <KeyboardProvider>
-            <RootLayoutNav />
-          </KeyboardProvider>
-        </GestureHandlerRootView>
+        <AuthProvider>
+          <GestureHandlerRootView>
+            <KeyboardProvider>
+              <AuthGate />
+            </KeyboardProvider>
+          </GestureHandlerRootView>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
