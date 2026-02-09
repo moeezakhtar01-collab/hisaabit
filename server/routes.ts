@@ -52,7 +52,7 @@ if (supabaseUrl && supabaseServiceKey) {
   supabase = createClient(supabaseUrl, supabaseServiceKey);
 }
 
-async function sendConfirmationEmail(email: string, token: string) {
+async function sendConfirmationEmail(email: string, token: string, requestHost?: string) {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) {
     console.warn("RESEND_API_KEY not configured, skipping confirmation email");
@@ -61,11 +61,17 @@ async function sendConfirmationEmail(email: string, token: string) {
 
   const resend = new Resend(resendApiKey);
 
-  const appUrl = process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : process.env.REPLIT_DEPLOYMENT_URL
-      ? `https://${process.env.REPLIT_DEPLOYMENT_URL}`
-      : "http://localhost:5000";
+  let appUrl: string;
+  if (requestHost) {
+    const protocol = requestHost.includes("localhost") ? "http" : "https";
+    appUrl = `${protocol}://${requestHost}`;
+  } else if (process.env.REPLIT_DEV_DOMAIN) {
+    appUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  } else if (process.env.REPLIT_DEPLOYMENT_URL) {
+    appUrl = `https://${process.env.REPLIT_DEPLOYMENT_URL}`;
+  } else {
+    appUrl = "http://localhost:5000";
+  }
 
   const confirmUrl = `${appUrl}/api/auth/confirm-email?token=${token}`;
 
@@ -179,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let emailSent = false;
       try {
-        await sendConfirmationEmail(email.toLowerCase().trim(), confirmationToken);
+        await sendConfirmationEmail(email.toLowerCase().trim(), confirmationToken, req.get("host"));
         emailSent = true;
       } catch (err: any) {
         console.error("Failed to send confirmation email:", err);
@@ -272,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.update(users).set({ confirmationToken: newToken }).where(eq(users.id, user.id));
 
       try {
-        await sendConfirmationEmail(email.toLowerCase().trim(), newToken);
+        await sendConfirmationEmail(email.toLowerCase().trim(), newToken, req.get("host"));
       } catch (err) {
         console.error("Failed to resend confirmation email:", err);
       }
