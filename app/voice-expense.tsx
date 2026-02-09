@@ -154,6 +154,7 @@ export default function VoiceExpenseScreen() {
       } else {
         const { File } = await import('expo-file-system');
         const file = new File(uri);
+        (file as any).name = 'recording.m4a';
         formData.append('audio', file as any);
       }
 

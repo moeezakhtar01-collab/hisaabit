@@ -38,7 +38,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openai = new OpenAI({ apiKey });
 
       const audioPath = req.file.path;
-      const audioFile = fs.createReadStream(audioPath);
+      const originalName = req.file.originalname || "recording.m4a";
+      const ext = path.extname(originalName).toLowerCase() || ".m4a";
+      const supportedExts = [".flac", ".m4a", ".mp3", ".mp4", ".mpeg", ".mpga", ".oga", ".ogg", ".wav", ".webm"];
+      const finalExt = supportedExts.includes(ext) ? ext : ".m4a";
+      const renamedPath = audioPath + finalExt;
+      fs.renameSync(audioPath, renamedPath);
+
+      const audioFile = fs.createReadStream(renamedPath);
 
       const transcription = await openai.audio.transcriptions.create({
         model: "whisper-1",
@@ -47,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prompt: "This is a Pakistani household expense spoken in Urdu or Roman Urdu or English. It may contain amounts in Pakistani Rupees (PKR). Common words: rupay, hazaar, sau, kiryana, sabzi, bijli, gas, school, petrol, chai, nashta, kapray, dawai, rent, kiraya.",
       });
 
-      fs.unlinkSync(audioPath);
+      try { fs.unlinkSync(renamedPath); } catch {};
 
       const transcript = transcription.text;
 
