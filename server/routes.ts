@@ -52,7 +52,10 @@ if (supabaseUrl && supabaseServiceKey) {
 }
 
 async function sendConfirmationEmail(email: string, token: string) {
-  if (!supabase) {
+  const supabaseUrlEnv = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrlEnv || !supabaseKey) {
     console.warn("Supabase not configured, skipping confirmation email");
     return;
   }
@@ -65,21 +68,57 @@ async function sendConfirmationEmail(email: string, token: string) {
 
   const confirmUrl = `${appUrl}/api/auth/confirm-email?token=${token}`;
 
-  const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: confirmUrl,
+  const emailHtml = `
+    <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #f8faf8;">
+      <div style="background: white; border-radius: 16px; padding: 32px 24px; border: 1px solid #e8ede8;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="width: 56px; height: 56px; background: #059669; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;">
+            <span style="color: white; font-size: 24px; font-weight: bold;">H</span>
+          </div>
+          <h1 style="margin: 16px 0 4px; font-size: 22px; color: #1a1a1a;">Welcome to Hisaab</h1>
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">Confirm your email to get started</p>
+        </div>
+        <p style="color: #374151; font-size: 14px; line-height: 22px;">
+          Please click the button below to verify your email address and activate your account.
+        </p>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${confirmUrl}" style="background: #059669; color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; display: inline-block;">
+            Confirm Email
+          </a>
+        </div>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+          If you didn't create a Hisaab account, you can safely ignore this email.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const response = await fetch(`${supabaseUrlEnv}/functions/v1/send-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({
+      to: email,
+      subject: "Confirm your Hisaab account",
+      html: emailHtml,
+    }),
   });
 
-  if (error) {
-    console.error("Supabase email invite error:", error);
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password: randomBytes(32).toString("hex"),
-      options: {
-        emailRedirectTo: confirmUrl,
-      },
-    });
-    if (signUpError) {
-      console.error("Supabase signUp fallback error:", signUpError);
+  if (!response.ok) {
+    console.warn("Supabase Edge Function email failed, trying auth invite fallback...");
+    try {
+      const { error } = await supabase!.auth.admin.inviteUserByEmail(email, {
+        redirectTo: confirmUrl,
+      });
+      if (error) {
+        console.error("Supabase auth invite error:", error.message);
+        throw new Error(`Email sending failed: ${error.message}`);
+      }
+    } catch (fallbackErr) {
+      console.error("All email methods failed:", fallbackErr);
+      throw fallbackErr;
     }
   }
 }
