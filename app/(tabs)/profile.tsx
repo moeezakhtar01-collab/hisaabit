@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/lib/auth-context';
 
@@ -10,6 +11,11 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  const navigateTo = (screen: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(screen as any);
+  };
 
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -59,7 +65,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Settings</Text>
 
           <View style={styles.menuCard}>
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/edit-profile')} testID="profile-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: Colors.primary + '15' }]}>
                 <Ionicons name="person-outline" size={18} color={Colors.primary} />
               </View>
@@ -69,7 +75,7 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/notifications')} testID="notifications-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#3B82F615' }]}>
                 <Ionicons name="notifications-outline" size={18} color="#3B82F6" />
               </View>
@@ -79,7 +85,7 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/privacy')} testID="privacy-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#8B5CF615' }]}>
                 <Ionicons name="shield-checkmark-outline" size={18} color="#8B5CF6" />
               </View>
@@ -93,7 +99,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Support</Text>
 
           <View style={styles.menuCard}>
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/help-faq')} testID="help-faq-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#F59E0B15' }]}>
                 <Ionicons name="help-circle-outline" size={18} color="#F59E0B" />
               </View>
@@ -103,7 +109,7 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/about')} testID="about-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#06B6D415' }]}>
                 <Ionicons name="information-circle-outline" size={18} color="#06B6D4" />
               </View>
