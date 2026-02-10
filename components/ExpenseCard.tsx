@@ -7,10 +7,11 @@ import { Expense, getCategoryLabel, getCategoryIcon, formatPKR, formatDate } fro
 interface ExpenseCardProps {
   expense: Expense;
   onDelete: (id: string) => void;
+  onEdit?: (expense: Expense) => void;
   index: number;
 }
 
-export default function ExpenseCard({ expense, onDelete, index }: ExpenseCardProps) {
+export default function ExpenseCard({ expense, onDelete, onEdit, index }: ExpenseCardProps) {
   const categoryColor = Colors.categories[expense.category as keyof typeof Colors.categories] || Colors.categories.general;
 
   return (
@@ -23,6 +24,7 @@ export default function ExpenseCard({ expense, onDelete, index }: ExpenseCardPro
           styles.card,
           pressed && styles.cardPressed,
         ]}
+        onPress={() => onEdit?.(expense)}
         onLongPress={() => onDelete(expense.id)}
         delayLongPress={500}
       >

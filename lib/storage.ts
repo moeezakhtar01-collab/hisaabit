@@ -40,6 +40,11 @@ export async function addExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Pr
   return await res.json();
 }
 
+export async function updateExpense(id: string, expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {
+  const res = await apiRequest('PUT', `/api/expenses/${id}`, expense);
+  return await res.json();
+}
+
 export async function deleteExpense(id: string): Promise<void> {
   await apiRequest('DELETE', `/api/expenses/${id}`);
 }
