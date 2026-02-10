@@ -13,19 +13,29 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import CategoryPill from '@/components/CategoryPill';
-import { addExpense, CATEGORIES, formatPKR } from '@/lib/storage';
+import { addExpense, updateExpense, CATEGORIES, formatPKR } from '@/lib/storage';
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000, 2500, 5000];
 
 export default function AddExpenseScreen() {
   const insets = useSafeAreaInsets();
-  const [amount, setAmount] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [note, setNote] = useState('');
+  const params = useLocalSearchParams<{
+    editId?: string;
+    editAmount?: string;
+    editCategory?: string;
+    editNote?: string;
+    editDate?: string;
+  }>();
+
+  const isEditing = !!params.editId;
+
+  const [amount, setAmount] = useState(params.editAmount || '');
+  const [selectedCategory, setSelectedCategory] = useState(params.editCategory || '');
+  const [note, setNote] = useState(params.editNote || '');
   const [saving, setSaving] = useState(false);
 
   const handleAmountChange = (text: string) => {
@@ -51,15 +61,24 @@ export default function AddExpenseScreen() {
     setSaving(true);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await addExpense({
-        amount: parseInt(amount, 10),
-        category: selectedCategory,
-        note: note.trim(),
-        date: new Date().toISOString(),
-      });
+      if (isEditing) {
+        await updateExpense(params.editId!, {
+          amount: parseInt(amount, 10),
+          category: selectedCategory,
+          note: note.trim(),
+          date: params.editDate || new Date().toISOString(),
+        });
+      } else {
+        await addExpense({
+          amount: parseInt(amount, 10),
+          category: selectedCategory,
+          note: note.trim(),
+          date: new Date().toISOString(),
+        });
+      }
       router.back();
     } catch {
-      Alert.alert('Error', 'Failed to save expense. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'save'} expense. Please try again.`);
       setSaving(false);
     }
   };
@@ -76,7 +95,7 @@ export default function AddExpenseScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="close" size={28} color={Colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Add Expense</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Expense' : 'Add Expense'}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -172,7 +191,7 @@ export default function AddExpenseScreen() {
           >
             <Ionicons name="checkmark" size={22} color="#fff" />
             <Text style={styles.saveButtonText}>
-              {saving ? 'Saving...' : 'Save Expense'}
+              {saving ? 'Saving...' : isEditing ? 'Update Expense' : 'Save Expense'}
             </Text>
           </Pressable>
         </Animated.View>

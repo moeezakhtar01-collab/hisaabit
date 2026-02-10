@@ -67,6 +67,19 @@ export default function HomeScreen() {
   );
   const todayTotal = getTotalExpenses(todayExpenses);
 
+  const handleEdit = (expense: Expense) => {
+    router.push({
+      pathname: '/add-expense',
+      params: {
+        editId: expense.id,
+        editAmount: expense.amount.toString(),
+        editCategory: expense.category,
+        editNote: expense.note || '',
+        editDate: expense.date,
+      },
+    });
+  };
+
   const handleDelete = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
@@ -202,6 +215,7 @@ export default function HomeScreen() {
                 key={expense.id}
                 expense={expense}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
                 index={index}
               />
             ))

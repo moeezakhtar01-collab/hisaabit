@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import ExpenseCard from '@/components/ExpenseCard';
 import CategoryPill from '@/components/CategoryPill';
@@ -67,6 +68,19 @@ export default function HistoryScreen() {
     setRefreshing(false);
   }, [loadExpenses]);
 
+  const handleEdit = (expense: Expense) => {
+    router.push({
+      pathname: '/add-expense',
+      params: {
+        editId: expense.id,
+        editAmount: expense.amount.toString(),
+        editCategory: expense.category,
+        editNote: expense.note || '',
+        editDate: expense.date,
+      },
+    });
+  };
+
   const handleDelete = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Delete Expense', 'Remove this expense?', [
@@ -86,7 +100,7 @@ export default function HistoryScreen() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: Expense; index: number }) => (
-      <ExpenseCard expense={item} onDelete={handleDelete} index={index} />
+      <ExpenseCard expense={item} onDelete={handleDelete} onEdit={handleEdit} index={index} />
     ),
     []
   );
