@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     paddingHorizontal: 20,
-    marginTop: -12,
+    marginTop: -8,
     marginBottom: -2,
   },
   sectionTitle: {
