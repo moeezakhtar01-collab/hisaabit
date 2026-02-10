@@ -18,6 +18,7 @@ import {
   confirmUserEmail,
   getExpensesByUser,
   addExpense,
+  updateExpenseById,
   deleteExpenseById,
   getBudgetsByUser,
   setBudgetForUser,
@@ -476,6 +477,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("Add expense error:", err);
       return res.status(500).json({ error: "Failed to add expense" });
+    }
+  });
+
+  app.put("/api/expenses/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { amount, category, note, date } = req.body;
+      if (!amount || !category || !date) {
+        return res.status(400).json({ error: "Amount, category and date are required" });
+      }
+      const updated = await updateExpenseById(req.session.userId!, req.params.id as string, {
+        amount,
+        category,
+        note: note || "",
+        date,
+      });
+      if (!updated) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      return res.json(updated);
+    } catch (err) {
+      console.error("Update expense error:", err);
+      return res.status(500).json({ error: "Failed to update expense" });
     }
   });
 

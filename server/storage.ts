@@ -63,6 +63,15 @@ export async function addExpense(userId: string, data: { amount: number; categor
   return expense;
 }
 
+export async function updateExpenseById(userId: string, expenseId: string, data: { amount: number; category: string; note: string; date: string }): Promise<Expense | null> {
+  const [updated] = await db
+    .update(expenses)
+    .set({ amount: data.amount, category: data.category, note: data.note, date: data.date })
+    .where(and(eq(expenses.id, expenseId), eq(expenses.userId, userId)))
+    .returning();
+  return updated || null;
+}
+
 export async function deleteExpenseById(userId: string, expenseId: string): Promise<boolean> {
   const result = await db.delete(expenses).where(and(eq(expenses.id, expenseId), eq(expenses.userId, userId))).returning();
   return result.length > 0;
