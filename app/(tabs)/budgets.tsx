@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: 20,
     marginTop: -8,
-    marginBottom: -2,
+    marginBottom: 0,
   },
   sectionTitle: {
     fontSize: 17,
