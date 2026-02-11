@@ -8,6 +8,8 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,7 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
-import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/storage';
+import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
 
@@ -50,6 +52,9 @@ export default function VoiceExpenseScreen() {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [editingField, setEditingField] = useState<{ index: number; field: 'amount' | 'note' } | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -227,6 +232,50 @@ export default function VoiceExpenseScreen() {
     setResult(null);
     setState('idle');
     setRecordingDuration(0);
+    setEditingField(null);
+    setCategoryPickerIndex(null);
+  };
+
+  const updateExpenseField = (index: number, field: keyof ExtractedExpense, value: string | number) => {
+    if (!result) return;
+    const updated = [...result.expenses];
+    updated[index] = { ...updated[index], [field]: value };
+    setResult({ ...result, expenses: updated });
+  };
+
+  const startEditField = (index: number, field: 'amount' | 'note') => {
+    if (!result) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const expense = result.expenses[index];
+    setEditingValue(field === 'amount' ? expense.amount.toString() : (expense.note || ''));
+    setEditingField({ index, field });
+  };
+
+  const confirmEditField = () => {
+    if (!editingField || !result) return;
+    const { index, field } = editingField;
+    if (field === 'amount') {
+      const parsed = parseInt(editingValue.replace(/[^0-9]/g, ''), 10);
+      if (parsed > 0) {
+        updateExpenseField(index, 'amount', parsed);
+      }
+    } else {
+      updateExpenseField(index, 'note', editingValue.trim());
+    }
+    setEditingField(null);
+    setEditingValue('');
+  };
+
+  const openCategoryPicker = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCategoryPickerIndex(index);
+  };
+
+  const selectCategory = (catKey: string) => {
+    if (categoryPickerIndex === null) return;
+    updateExpenseField(categoryPickerIndex, 'category', catKey);
+    setCategoryPickerIndex(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const formatDuration = (secs: number) => {
@@ -369,19 +418,42 @@ export default function VoiceExpenseScreen() {
                   </View>
                 )}
 
-                <View style={styles.extractedRow}>
+                <Pressable
+                  onPress={() => startEditField(index, 'amount')}
+                  style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
+                >
                   <View style={styles.extractedIconBg}>
                     <Ionicons name="cash-outline" size={18} color={Colors.primary} />
                   </View>
                   <View style={styles.extractedDetail}>
                     <Text style={styles.extractedLabel}>Amount</Text>
-                    <Text style={styles.extractedValue}>{formatPKR(expense.amount)}</Text>
+                    {editingField?.index === index && editingField?.field === 'amount' ? (
+                      <TextInput
+                        style={styles.inlineInput}
+                        value={editingValue}
+                        onChangeText={(t) => setEditingValue(t.replace(/[^0-9]/g, ''))}
+                        keyboardType="numeric"
+                        autoFocus
+                        onBlur={confirmEditField}
+                        onSubmitEditing={confirmEditField}
+                        maxLength={8}
+                        selectTextOnFocus
+                      />
+                    ) : (
+                      <Text style={styles.extractedValue}>{formatPKR(expense.amount)}</Text>
+                    )}
                   </View>
-                </View>
+                  {!(editingField?.index === index && editingField?.field === 'amount') && (
+                    <Ionicons name="pencil" size={14} color={Colors.textSecondary} />
+                  )}
+                </Pressable>
 
                 <View style={styles.extractedDivider} />
 
-                <View style={styles.extractedRow}>
+                <Pressable
+                  onPress={() => openCategoryPicker(index)}
+                  style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
+                >
                   <View style={styles.extractedIconBg}>
                     <Ionicons
                       name={(CATEGORIES.find(c => c.key === expense.category)?.icon || 'ellipsis-horizontal-circle') as any}
@@ -393,22 +465,43 @@ export default function VoiceExpenseScreen() {
                     <Text style={styles.extractedLabel}>Category</Text>
                     <Text style={styles.extractedValue}>{getCategoryLabel(expense.category)}</Text>
                   </View>
-                </View>
+                  <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                </Pressable>
 
-                {expense.note ? (
-                  <>
-                    <View style={styles.extractedDivider} />
-                    <View style={styles.extractedRow}>
-                      <View style={styles.extractedIconBg}>
-                        <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
-                      </View>
-                      <View style={styles.extractedDetail}>
-                        <Text style={styles.extractedLabel}>Note</Text>
-                        <Text style={styles.extractedValue}>{expense.note}</Text>
-                      </View>
-                    </View>
-                  </>
-                ) : null}
+                <View style={styles.extractedDivider} />
+
+                <Pressable
+                  onPress={() => startEditField(index, 'note')}
+                  style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
+                >
+                  <View style={styles.extractedIconBg}>
+                    <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                  </View>
+                  <View style={styles.extractedDetail}>
+                    <Text style={styles.extractedLabel}>Note</Text>
+                    {editingField?.index === index && editingField?.field === 'note' ? (
+                      <TextInput
+                        style={styles.inlineInput}
+                        value={editingValue}
+                        onChangeText={setEditingValue}
+                        autoFocus
+                        onBlur={confirmEditField}
+                        onSubmitEditing={confirmEditField}
+                        maxLength={100}
+                        placeholder="Add a note..."
+                        placeholderTextColor={Colors.textSecondary}
+                        selectTextOnFocus
+                      />
+                    ) : (
+                      <Text style={[styles.extractedValue, !expense.note && styles.placeholderNote]}>
+                        {expense.note || 'Tap to add note'}
+                      </Text>
+                    )}
+                  </View>
+                  {!(editingField?.index === index && editingField?.field === 'note') && (
+                    <Ionicons name="pencil" size={14} color={Colors.textSecondary} />
+                  )}
+                </Pressable>
               </View>
             ))}
 
@@ -437,18 +530,48 @@ export default function VoiceExpenseScreen() {
                 <Ionicons name="refresh" size={18} color={Colors.primary} />
                 <Text style={styles.retryText}>Try Again</Text>
               </Pressable>
-
-              <Pressable
-                onPress={() => { router.back(); router.push('/add-expense'); }}
-                style={styles.retryButton}
-              >
-                <Ionicons name="create-outline" size={18} color={Colors.primary} />
-                <Text style={styles.retryText}>Edit Manually</Text>
-              </Pressable>
             </View>
           </Animated.View>
         </ScrollView>
       )}
+
+      <Modal
+        visible={categoryPickerIndex !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCategoryPickerIndex(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setCategoryPickerIndex(null)}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select Category</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalCategoryScroll}>
+              {CATEGORIES.map(cat => {
+                const isSelected = categoryPickerIndex !== null && result?.expenses[categoryPickerIndex]?.category === cat.key;
+                return (
+                  <Pressable
+                    key={cat.key}
+                    onPress={() => selectCategory(cat.key)}
+                    style={({ pressed }) => [
+                      styles.modalCategoryRow,
+                      isSelected && styles.modalCategoryRowSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <View style={[styles.modalCategoryIcon, isSelected && styles.modalCategoryIconSelected]}>
+                      <Ionicons name={cat.icon as any} size={20} color={isSelected ? '#fff' : Colors.primary} />
+                    </View>
+                    <Text style={[styles.modalCategoryLabel, isSelected && styles.modalCategoryLabelSelected]}>
+                      {cat.label}
+                    </Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -760,5 +883,93 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
     color: '#fff',
+  },
+  editableRow: {
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    marginHorizontal: -4,
+  },
+  editableRowPressed: {
+    backgroundColor: Colors.primary + '08',
+  },
+  inlineInput: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    margin: 0,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.primary,
+    minWidth: 80,
+  },
+  placeholderNote: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontStyle: 'italic' as const,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    maxHeight: '70%' as any,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  modalCategoryScroll: {
+    flexGrow: 0,
+  },
+  modalCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginBottom: 2,
+  },
+  modalCategoryRowSelected: {
+    backgroundColor: Colors.primary + '10',
+  },
+  modalCategoryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCategoryIconSelected: {
+    backgroundColor: Colors.primary,
+  },
+  modalCategoryLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.text,
+  },
+  modalCategoryLabelSelected: {
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.primary,
   },
 });
