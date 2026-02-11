@@ -98,6 +98,8 @@ export default function BudgetsScreen() {
     setShowCategoryModal(true);
   };
 
+  const currentCategoryTotal = monthBudgets.reduce((sum, b) => sum + b.limit, 0);
+
   const handleSaveCategoryBudget = async () => {
     if (!selectedCategory || !budgetAmount) {
       Alert.alert('Missing Info', 'Please select a category and enter a budget amount');
@@ -107,6 +109,19 @@ export default function BudgetsScreen() {
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid budget amount');
       return;
+    }
+
+    if (monthlyLimit > 0) {
+      const existingForCategory = monthBudgets.find(b => b.category === selectedCategory)?.limit || 0;
+      const newTotal = currentCategoryTotal - existingForCategory + amount;
+      if (newTotal > monthlyLimit) {
+        const available = monthlyLimit - (currentCategoryTotal - existingForCategory);
+        Alert.alert(
+          'Exceeds Monthly Budget',
+          `This would bring your category budgets total to ${formatPKR(newTotal)}, which exceeds your monthly budget of ${formatPKR(monthlyLimit)}.\n\nYou can set up to ${formatPKR(Math.max(available, 0))} for this category.`
+        );
+        return;
+      }
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -146,6 +161,14 @@ export default function BudgetsScreen() {
     const amount = parseInt(monthlyAmount, 10);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+
+    if (currentCategoryTotal > 0 && amount < currentCategoryTotal) {
+      Alert.alert(
+        'Budget Too Low',
+        `Your category budgets already total ${formatPKR(currentCategoryTotal)}. The monthly budget must be at least this amount.\n\nReduce your category budgets first, or set a higher monthly budget.`
+      );
       return;
     }
 
@@ -324,6 +347,19 @@ export default function BudgetsScreen() {
               placeholder="e.g. 15000"
               placeholderTextColor={Colors.textSecondary}
             />
+            {monthlyLimit > 0 && (
+              <View style={styles.budgetHintRow}>
+                <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+                <Text style={styles.budgetHintText}>
+                  {(() => {
+                    const existingForCat = monthBudgets.find(b => b.category === selectedCategory)?.limit || 0;
+                    const usedByOthers = currentCategoryTotal - existingForCat;
+                    const available = monthlyLimit - usedByOthers;
+                    return `Available: ${formatPKR(Math.max(available, 0))} of ${formatPKR(monthlyLimit)} monthly budget`;
+                  })()}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.modalButtonRow}>
               <Pressable
@@ -689,6 +725,21 @@ const styles = StyleSheet.create({
   currencyPrefix: {
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
+    color: Colors.textSecondary,
+  },
+  budgetHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary + '08',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  budgetHintText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
     color: Colors.textSecondary,
   },
   monthlyInput: {
