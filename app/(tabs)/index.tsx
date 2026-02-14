@@ -33,8 +33,6 @@ import {
   getBudgetSettingsApi,
   formatPKR,
   getTotalExpenses,
-  getCategoryLabel,
-  CATEGORIES,
 } from '@/lib/storage';
 
 function calculateStreak(expenses: Expense[]): number {
@@ -67,106 +65,6 @@ function calculateStreak(expenses: Expense[]): number {
   return streak;
 }
 
-interface SpendingInsight {
-  text: string;
-  type: 'positive' | 'negative' | 'neutral';
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-function generateInsights(
-  expenses: Expense[],
-  weekExpenses: Expense[],
-  todayExpenses: Expense[]
-): SpendingInsight[] {
-  const insights: SpendingInsight[] = [];
-
-  const now = new Date();
-  const lastWeekStart = new Date(now);
-  const dayOfWeek = lastWeekStart.getDay();
-  lastWeekStart.setDate(lastWeekStart.getDate() - ((dayOfWeek + 6) % 7) - 7);
-  lastWeekStart.setHours(0, 0, 0, 0);
-  const lastWeekEnd = new Date(lastWeekStart);
-  lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-  lastWeekEnd.setHours(23, 59, 59, 999);
-
-  const lastWeekExpenses = expenses.filter(e => {
-    const d = new Date(e.date);
-    return d >= lastWeekStart && d <= lastWeekEnd;
-  });
-
-  if (lastWeekExpenses.length > 0 && weekExpenses.length > 0) {
-    const currentWeekByCategory = new Map<string, number>();
-    const lastWeekByCategory = new Map<string, number>();
-
-    for (const e of weekExpenses) {
-      currentWeekByCategory.set(e.category, (currentWeekByCategory.get(e.category) || 0) + e.amount);
-    }
-    for (const e of lastWeekExpenses) {
-      lastWeekByCategory.set(e.category, (lastWeekByCategory.get(e.category) || 0) + e.amount);
-    }
-
-    let biggestDrop = { category: '', pct: 0 };
-    let biggestRise = { category: '', pct: 0 };
-
-    for (const [cat, lastAmt] of lastWeekByCategory) {
-      const currAmt = currentWeekByCategory.get(cat) || 0;
-      if (lastAmt > 0) {
-        const pctChange = ((currAmt - lastAmt) / lastAmt) * 100;
-        if (pctChange < biggestDrop.pct) biggestDrop = { category: cat, pct: pctChange };
-        if (pctChange > biggestRise.pct) biggestRise = { category: cat, pct: pctChange };
-      }
-    }
-
-    if (biggestDrop.pct < -15) {
-      insights.push({
-        text: `You spent ${Math.abs(Math.round(biggestDrop.pct))}% less on ${getCategoryLabel(biggestDrop.category)} this week`,
-        type: 'positive',
-        icon: 'trending-down',
-      });
-    }
-    if (biggestRise.pct > 20) {
-      insights.push({
-        text: `${getCategoryLabel(biggestRise.category)} spending is up ${Math.round(biggestRise.pct)}% this week`,
-        type: 'negative',
-        icon: 'trending-up',
-      });
-    }
-  }
-
-  if (todayExpenses.length > 0) {
-    const maxExpense = todayExpenses.reduce((max, e) => e.amount > max.amount ? e : max, todayExpenses[0]);
-    insights.push({
-      text: `Biggest expense today: ${getCategoryLabel(maxExpense.category)} (${formatPKR(maxExpense.amount)})`,
-      type: 'neutral',
-      icon: 'pricetag',
-    });
-  }
-
-  const thisWeekTotal = getTotalExpenses(weekExpenses);
-  const lastWeekTotal = getTotalExpenses(lastWeekExpenses);
-  if (lastWeekTotal > 0 && thisWeekTotal > 0) {
-    const weekPctChange = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
-    if (Math.abs(weekPctChange) > 10) {
-      insights.push({
-        text: weekPctChange < 0
-          ? `Overall spending is down ${Math.abs(Math.round(weekPctChange))}% vs last week`
-          : `Overall spending is up ${Math.round(weekPctChange)}% vs last week`,
-        type: weekPctChange < 0 ? 'positive' : 'negative',
-        icon: weekPctChange < 0 ? 'arrow-down-circle' : 'arrow-up-circle',
-      });
-    }
-  }
-
-  if (todayExpenses.length === 0 && expenses.length > 0) {
-    insights.push({
-      text: "No expenses logged today yet - keep your streak going!",
-      type: 'neutral',
-      icon: 'time',
-    });
-  }
-
-  return insights.slice(0, 3);
-}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -212,10 +110,6 @@ export default function HomeScreen() {
   const dailyLimit = budgetSettings?.dailyLimit ?? 0;
 
   const streak = useMemo(() => calculateStreak(expenses), [expenses]);
-  const insights = useMemo(
-    () => generateInsights(expenses, weekExpenses, todayExpenses),
-    [expenses, weekExpenses, todayExpenses]
-  );
 
   const handleEdit = (expense: Expense) => {
     router.push({
@@ -339,54 +233,27 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {(streak > 0 || insights.length > 0) ? (
+        {streak > 0 ? (
           <Animated.View entering={FadeInDown.delay(120).duration(500)} style={styles.engagementRow}>
-            {streak > 0 ? (
-              <View style={styles.streakCard}>
-                <View style={styles.streakFlameBg}>
-                  <Ionicons name="flame" size={20} color="#F97316" />
-                </View>
-                <View style={styles.streakInfo}>
-                  <Text style={styles.streakCount}>{streak}-day streak</Text>
-                  <Text style={styles.streakSubtext}>
-                    {streak >= 7 ? 'Amazing consistency!' : streak >= 3 ? 'Keep it up!' : 'Great start!'}
-                  </Text>
-                </View>
-                <View style={styles.streakDots}>
-                  {Array.from({ length: Math.min(streak, 7) }, (_, i) => (
-                    <View key={i} style={[styles.streakDot, { backgroundColor: '#F97316' }]} />
-                  ))}
-                  {streak < 7 ? Array.from({ length: 7 - Math.min(streak, 7) }, (_, i) => (
-                    <View key={`empty-${i}`} style={[styles.streakDot, { backgroundColor: Colors.border }]} />
-                  )) : null}
-                </View>
+            <View style={styles.streakCard}>
+              <View style={styles.streakFlameBg}>
+                <Ionicons name="flame" size={20} color="#F97316" />
               </View>
-            ) : null}
-            {insights.length > 0 ? (
-              <View style={styles.insightsCard}>
-                <View style={styles.insightsHeader}>
-                  <Ionicons name="bulb" size={16} color={Colors.accent} />
-                  <Text style={styles.insightsTitle}>Insights</Text>
-                </View>
-                {insights.map((insight, i) => (
-                  <View key={i} style={styles.insightItem}>
-                    <Ionicons
-                      name={insight.icon as any}
-                      size={16}
-                      color={
-                        insight.type === 'positive' ? Colors.success :
-                        insight.type === 'negative' ? Colors.danger : Colors.textSecondary
-                      }
-                    />
-                    <Text style={[
-                      styles.insightText,
-                      insight.type === 'positive' && { color: Colors.success },
-                      insight.type === 'negative' && { color: Colors.danger },
-                    ]}>{insight.text}</Text>
-                  </View>
+              <View style={styles.streakInfo}>
+                <Text style={styles.streakCount}>{streak}-day streak</Text>
+                <Text style={styles.streakSubtext}>
+                  {streak >= 7 ? 'Amazing consistency!' : streak >= 3 ? 'Keep it up!' : 'Great start!'}
+                </Text>
+              </View>
+              <View style={styles.streakDots}>
+                {Array.from({ length: Math.min(streak, 7) }, (_, i) => (
+                  <View key={i} style={[styles.streakDot, { backgroundColor: '#F97316' }]} />
                 ))}
+                {streak < 7 ? Array.from({ length: 7 - Math.min(streak, 7) }, (_, i) => (
+                  <View key={`empty-${i}`} style={[styles.streakDot, { backgroundColor: Colors.border }]} />
+                )) : null}
               </View>
-            ) : null}
+            </View>
           </Animated.View>
         ) : null}
 
@@ -803,36 +670,5 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  insightsCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 10,
-  },
-  insightsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  insightsTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-  },
-  insightItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingLeft: 2,
-  },
-  insightText: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.text,
-    flex: 1,
-    lineHeight: 18,
   },
 });
