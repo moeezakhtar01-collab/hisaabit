@@ -130,7 +130,7 @@ export default function ProfileScreen() {
           </Pressable>
         </Animated.View>
 
-        <Text style={styles.versionText}>Hisaab v1.0.0</Text>
+        <Text style={styles.versionText}>Hisaabit v1.0.0</Text>
       </ScrollView>
     </View>
   );

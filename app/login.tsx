@@ -65,7 +65,7 @@ export default function LoginScreen() {
           <View style={styles.logoIcon}>
             <Ionicons name="wallet" size={36} color="#fff" />
           </View>
-          <Text style={styles.logoText}>Hisaab</Text>
+          <Text style={styles.logoText}>Hisaabit</Text>
           <Text style={styles.logoSubtext}>Track your household expenses</Text>
         </View>
 

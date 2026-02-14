@@ -74,7 +74,7 @@ export default function RegisterScreen() {
           <View style={styles.logoIcon}>
             <Ionicons name="wallet" size={36} color="#fff" />
           </View>
-          <Text style={styles.logoText}>Hisaab</Text>
+          <Text style={styles.logoText}>Hisaabit</Text>
           <Text style={styles.logoSubtext}>Start tracking your expenses</Text>
         </View>
 
