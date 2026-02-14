@@ -119,7 +119,7 @@ export function getTotalExpenses(expenses: Expense[]): number {
 }
 
 export const CATEGORIES = [
-  { key: 'kiryana', label: 'Kiryana', icon: 'cart' as const },
+  { key: 'kiryana', label: 'Grocery', icon: 'cart' as const },
   { key: 'sabziMandi', label: 'Sabzi Mandi', icon: 'leaf' as const },
   { key: 'bijliBill', label: 'Bijli Bill', icon: 'flash' as const },
   { key: 'gasBill', label: 'Gas Bill', icon: 'flame' as const },
@@ -128,8 +128,8 @@ export const CATEGORIES = [
   { key: 'transport', label: 'Transport', icon: 'car' as const },
   { key: 'mobileRecharge', label: 'Mobile Recharge', icon: 'phone-portrait' as const },
   { key: 'medical', label: 'Medical', icon: 'medkit' as const },
-  { key: 'chaiNashta', label: 'Chai / Nashta', icon: 'cafe' as const },
-  { key: 'kapray', label: 'Kapray', icon: 'shirt' as const },
+  { key: 'chaiNashta', label: 'Food', icon: 'cafe' as const },
+  { key: 'kapray', label: 'Shopping', icon: 'shirt' as const },
   { key: 'rent', label: 'Rent', icon: 'home' as const },
   { key: 'general', label: 'General', icon: 'ellipsis-horizontal-circle' as const },
 ] as const;

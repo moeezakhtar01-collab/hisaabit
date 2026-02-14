@@ -122,7 +122,7 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
 }
 
 const CATEGORIES = [
-  { key: "kiryana", label: "Kiryana", aliases: ["grocery", "groceries", "kiryana", "ration", "general store", "dukan"] },
+  { key: "kiryana", label: "Grocery", aliases: ["grocery", "groceries", "kiryana", "ration", "general store", "dukan"] },
   { key: "sabziMandi", label: "Sabzi Mandi", aliases: ["sabzi", "vegetables", "fruit", "mandi", "sabzi mandi", "phal"] },
   { key: "bijliBill", label: "Bijli Bill", aliases: ["bijli", "electricity", "light bill", "wapda", "electric"] },
   { key: "gasBill", label: "Gas Bill", aliases: ["gas", "sui gas", "gas bill", "sui northern", "sui southern"] },
@@ -131,8 +131,8 @@ const CATEGORIES = [
   { key: "transport", label: "Transport", aliases: ["transport", "petrol", "diesel", "rickshaw", "uber", "careem", "bus", "fuel", "cng"] },
   { key: "mobileRecharge", label: "Mobile Recharge", aliases: ["mobile", "recharge", "phone", "jazz", "telenor", "zong", "ufone", "internet", "wifi"] },
   { key: "medical", label: "Medical", aliases: ["medical", "doctor", "hospital", "medicine", "dawai", "pharmacy", "clinic", "lab test"] },
-  { key: "chaiNashta", label: "Chai / Nashta", aliases: ["chai", "tea", "nashta", "breakfast", "restaurant", "hotel", "dhaba", "khana", "lunch", "dinner", "food", "biryani", "pizza"] },
-  { key: "kapray", label: "Kapray", aliases: ["kapray", "clothes", "kapra", "shoes", "joota", "shopping", "dress"] },
+  { key: "chaiNashta", label: "Food", aliases: ["chai", "tea", "nashta", "breakfast", "restaurant", "hotel", "dhaba", "khana", "lunch", "dinner", "food", "biryani", "pizza"] },
+  { key: "kapray", label: "Shopping", aliases: ["kapray", "clothes", "kapra", "shoes", "joota", "shopping", "dress"] },
   { key: "rent", label: "Rent", aliases: ["rent", "kiraya", "house rent", "ghar ka kiraya"] },
   { key: "general", label: "General", aliases: ["general", "other", "misc"] },
 ];
