@@ -1,6 +1,6 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "./db";
-import { users, expenses, budgets, monthlyBudgets, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget } from "@shared/schema";
+import { users, expenses, budgets, monthlyBudgets, budgetSettings, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget, type BudgetSettings } from "@shared/schema";
 
 export async function createUser(data: InsertUser & { confirmationToken?: string }): Promise<User> {
   const [user] = await db.insert(users).values(data).returning();

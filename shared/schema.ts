@@ -48,6 +48,15 @@ export const monthlyBudgets = pgTable("monthly_budgets", {
   totalLimit: integer("total_limit").notNull(),
 });
 
+export const budgetSettings = pgTable("budget_settings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  dailyLimit: integer("daily_limit"),
+  weeklyLimit: integer("weekly_limit"),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
@@ -59,3 +68,4 @@ export type User = typeof users.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
+export type BudgetSettings = typeof budgetSettings.$inferSelect;
