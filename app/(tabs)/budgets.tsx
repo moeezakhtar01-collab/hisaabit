@@ -35,6 +35,9 @@ import {
   Budget,
   Expense,
   MonthlyBudget,
+  BudgetSettings,
+  getBudgetSettingsApi,
+  saveBudgetSettings,
 } from '@/lib/storage';
 
 export default function BudgetsScreen() {
@@ -49,17 +52,24 @@ export default function BudgetsScreen() {
   const [budgetAmount, setBudgetAmount] = useState('');
   const [monthlyAmount, setMonthlyAmount] = useState('');
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [budgetSettings, setBudgetSettingsState] = useState<BudgetSettings | null>(null);
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [showWeeklyModal, setShowWeeklyModal] = useState(false);
+  const [dailyAmount, setDailyAmount] = useState('');
+  const [weeklyAmount, setWeeklyAmount] = useState('');
   const currentMonth = getMonthKey();
 
   const loadData = useCallback(async () => {
-    const [allExpenses, allBudgets, mb] = await Promise.all([
+    const [allExpenses, allBudgets, mb, bs] = await Promise.all([
       getExpenses(),
       getBudgets(),
       getMonthlyBudget(currentMonth),
+      getBudgetSettingsApi(),
     ]);
     setExpenses(allExpenses);
     setBudgets(allBudgets);
     setMonthlyBudgetState(mb);
+    setBudgetSettingsState(bs);
   }, [currentMonth]);
 
   useEffect(() => {
@@ -179,6 +189,50 @@ export default function BudgetsScreen() {
     setMonthlyAmount('');
   };
 
+  const openDailyModal = () => {
+    setDailyAmount(budgetSettings?.dailyLimit ? budgetSettings.dailyLimit.toString() : '');
+    setShowDailyModal(true);
+  };
+
+  const openWeeklyModal = () => {
+    setWeeklyAmount(budgetSettings?.weeklyLimit ? budgetSettings.weeklyLimit.toString() : '');
+    setShowWeeklyModal(true);
+  };
+
+  const handleSaveDailyBudget = async () => {
+    if (!dailyAmount) {
+      Alert.alert('Missing Amount', 'Please enter your daily budget');
+      return;
+    }
+    const amount = parseInt(dailyAmount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await saveBudgetSettings({ dailyLimit: amount });
+    await loadData();
+    setShowDailyModal(false);
+    setDailyAmount('');
+  };
+
+  const handleSaveWeeklyBudget = async () => {
+    if (!weeklyAmount) {
+      Alert.alert('Missing Amount', 'Please enter your weekly budget');
+      return;
+    }
+    const amount = parseInt(weeklyAmount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await saveBudgetSettings({ weeklyLimit: amount });
+    await loadData();
+    setShowWeeklyModal(false);
+    setWeeklyAmount('');
+  };
+
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
@@ -275,6 +329,64 @@ export default function BudgetsScreen() {
             )}
           </View>
         </Animated.View>
+
+        <View style={styles.periodBudgetRow}>
+          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.periodBudgetCardWrapper}>
+            <View style={styles.periodBudgetCard}>
+              <View style={styles.periodBudgetHeader}>
+                <View style={[styles.periodBudgetIconBg, { backgroundColor: Colors.warning + '15' }]}>
+                  <Ionicons name="today-outline" size={16} color={Colors.warning} />
+                </View>
+                <Text style={styles.periodBudgetTitle}>Daily Budget</Text>
+              </View>
+              {budgetSettings?.dailyLimit ? (
+                <View style={styles.periodBudgetBody}>
+                  <Text style={styles.periodBudgetAmount}>{formatPKR(budgetSettings.dailyLimit)}</Text>
+                  <Pressable
+                    onPress={openDailyModal}
+                    hitSlop={12}
+                    style={({ pressed }) => [styles.periodBudgetEditBtn, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable onPress={openDailyModal} style={styles.periodBudgetEmpty}>
+                  <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                  <Text style={styles.periodBudgetEmptyText}>Tap to set</Text>
+                </Pressable>
+              )}
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(175).duration(400)} style={styles.periodBudgetCardWrapper}>
+            <View style={styles.periodBudgetCard}>
+              <View style={styles.periodBudgetHeader}>
+                <View style={[styles.periodBudgetIconBg, { backgroundColor: Colors.accent + '15' }]}>
+                  <Ionicons name="calendar-outline" size={16} color={Colors.accent} />
+                </View>
+                <Text style={styles.periodBudgetTitle}>Weekly Budget</Text>
+              </View>
+              {budgetSettings?.weeklyLimit ? (
+                <View style={styles.periodBudgetBody}>
+                  <Text style={styles.periodBudgetAmount}>{formatPKR(budgetSettings.weeklyLimit)}</Text>
+                  <Pressable
+                    onPress={openWeeklyModal}
+                    hitSlop={12}
+                    style={({ pressed }) => [styles.periodBudgetEditBtn, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable onPress={openWeeklyModal} style={styles.periodBudgetEmpty}>
+                  <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                  <Text style={styles.periodBudgetEmptyText}>Tap to set</Text>
+                </Pressable>
+              )}
+            </View>
+          </Animated.View>
+        </View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <View style={styles.sectionHeader}>
@@ -441,6 +553,112 @@ export default function BudgetsScreen() {
             >
               <Text style={styles.saveButtonText}>
                 {monthlyLimit > 0 ? 'Update Budget' : 'Set Budget'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDailyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDailyModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {budgetSettings?.dailyLimit ? 'Edit Daily Budget' : 'Set Daily Budget'}
+            </Text>
+            <Pressable onPress={() => setShowDailyModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.monthlyModalContent}>
+            <View style={[styles.monthlyModalIcon, { backgroundColor: Colors.warning + '12' }]}>
+              <Ionicons name="today" size={40} color={Colors.warning} />
+            </View>
+            <Text style={styles.monthlyModalLabel}>
+              How much do you want to spend per day?
+            </Text>
+
+            <View style={styles.monthlyInputRow}>
+              <Text style={styles.currencyPrefix}>Rs.</Text>
+              <TextInput
+                style={styles.monthlyInput}
+                value={dailyAmount}
+                onChangeText={setDailyAmount}
+                keyboardType="numeric"
+                placeholder="2,000"
+                placeholderTextColor={Colors.border}
+                autoFocus
+              />
+            </View>
+
+            <Pressable
+              onPress={handleSaveDailyBudget}
+              style={({ pressed }) => [
+                styles.saveButton,
+                { marginTop: 24 },
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+              ]}
+            >
+              <Text style={styles.saveButtonText}>
+                {budgetSettings?.dailyLimit ? 'Update Budget' : 'Set Budget'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showWeeklyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowWeeklyModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {budgetSettings?.weeklyLimit ? 'Edit Weekly Budget' : 'Set Weekly Budget'}
+            </Text>
+            <Pressable onPress={() => setShowWeeklyModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.monthlyModalContent}>
+            <View style={[styles.monthlyModalIcon, { backgroundColor: Colors.accent + '12' }]}>
+              <Ionicons name="calendar" size={40} color={Colors.accent} />
+            </View>
+            <Text style={styles.monthlyModalLabel}>
+              How much do you want to spend per week?
+            </Text>
+
+            <View style={styles.monthlyInputRow}>
+              <Text style={styles.currencyPrefix}>Rs.</Text>
+              <TextInput
+                style={styles.monthlyInput}
+                value={weeklyAmount}
+                onChangeText={setWeeklyAmount}
+                keyboardType="numeric"
+                placeholder="10,000"
+                placeholderTextColor={Colors.border}
+                autoFocus
+              />
+            </View>
+
+            <Pressable
+              onPress={handleSaveWeeklyBudget}
+              style={({ pressed }) => [
+                styles.saveButton,
+                { marginTop: 24 },
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+              ]}
+            >
+              <Text style={styles.saveButtonText}>
+                {budgetSettings?.weeklyLimit ? 'Update Budget' : 'Set Budget'}
               </Text>
             </Pressable>
           </View>
@@ -751,5 +969,63 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 2,
     borderBottomColor: Colors.primary,
+  },
+  periodBudgetRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  periodBudgetCardWrapper: {
+    flex: 1,
+  },
+  periodBudgetCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  periodBudgetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  periodBudgetIconBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodBudgetTitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  periodBudgetBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  periodBudgetAmount: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  periodBudgetEditBtn: {
+    padding: 4,
+  },
+  periodBudgetEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  periodBudgetEmptyText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.primary,
   },
 });
