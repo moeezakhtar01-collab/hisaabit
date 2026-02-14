@@ -1,7 +1,7 @@
-# Hisaab - Personal Finance Tracker for Pakistan
+# Hisaabit - Personal Finance Tracker for Pakistan
 
 ## Overview
-Hisaab is a mobile expense tracking app built specifically for Pakistani households. It helps users track daily spending in PKR with categories relevant to Pakistani life (Kiryana, Sabzi Mandi, Bijli Bill, etc.).
+Hisaabit is a mobile expense tracking app built specifically for Pakistani households. It helps users track daily spending in PKR with categories relevant to Pakistani life (Kiryana, Sabzi Mandi, Bijli Bill, etc.).
 
 ## Architecture
 - **Frontend**: Expo React Native with Expo Router (file-based routing)

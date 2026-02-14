@@ -88,7 +88,7 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
           <div style="width: 56px; height: 56px; background: #059669; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;">
             <span style="color: white; font-size: 24px; font-weight: bold;">H</span>
           </div>
-          <h1 style="margin: 16px 0 4px; font-size: 22px; color: #1a1a1a;">Welcome to Hisaab</h1>
+          <h1 style="margin: 16px 0 4px; font-size: 22px; color: #1a1a1a;">Welcome to Hisaabit</h1>
           <p style="color: #6b7280; font-size: 14px; margin: 0;">Confirm your email to get started</p>
         </div>
         <p style="color: #374151; font-size: 14px; line-height: 22px;">
@@ -100,16 +100,16 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
           </a>
         </div>
         <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
-          If you didn't create a Hisaab account, you can safely ignore this email.
+          If you didn't create a Hisaabit account, you can safely ignore this email.
         </p>
       </div>
     </div>
   `;
 
   const { data, error } = await resend.emails.send({
-    from: "Hisaab <onboarding@resend.dev>",
+    from: "Hisaabit <onboarding@resend.dev>",
     to: [email],
-    subject: "Confirm your Hisaab account",
+    subject: "Confirm your Hisaabit account",
     html: emailHtml,
   });
 
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conString: process.env.DATABASE_URL,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "hisaab-secret-key",
+      secret: process.env.SESSION_SECRET || "hisaabit-secret-key",
       resave: false,
       saveUninitialized: false,
       cookie: {

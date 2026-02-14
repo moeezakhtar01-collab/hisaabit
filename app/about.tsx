@@ -54,7 +54,7 @@ export default function AboutScreen() {
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarLetter}>H</Text>
           </View>
-          <Text style={styles.appName}>Hisaab</Text>
+          <Text style={styles.appName}>Hisaabit</Text>
           <Text style={styles.tagline}>Personal Finance Tracker for Pakistan</Text>
           <Text style={styles.version}>Version 1.0.0</Text>
         </Animated.View>

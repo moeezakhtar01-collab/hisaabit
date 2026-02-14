@@ -65,7 +65,7 @@ async function scheduleDailyReminder(hour: number, minute: number) {
   const message = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Hisaab',
+      title: 'Hisaabit',
       body: message,
       sound: true,
     },

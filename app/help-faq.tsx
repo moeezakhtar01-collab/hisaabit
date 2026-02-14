@@ -37,7 +37,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'What categories are available?',
-    answer: 'Hisaab includes 13 categories designed for Pakistani households: Kiryana, Sabzi Mandi, Bijli Bill, Gas Bill, Paani Bill, School Fees, Transport, Mobile Recharge, Medical, Chai/Nashta, Kapray, Rent, and General.',
+    answer: 'Hisaabit includes 13 categories designed for Pakistani households: Kiryana, Sabzi Mandi, Bijli Bill, Gas Bill, Paani Bill, School Fees, Transport, Mobile Recharge, Medical, Chai/Nashta, Kapray, Rent, and General.',
   },
   {
     question: 'How do I change my password?',
