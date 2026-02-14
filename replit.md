@@ -38,8 +38,11 @@ Hisaab is a mobile expense tracking app built specifically for Pakistani househo
 - Daily, weekly, and monthly budget tracking
 - Tappable daily/weekly summary cards on home screen showing expenses for the period
 - Spending breakdown with visual charts
-- Expense history with category filtering and month navigation
+- Expense history with Monthly/Weekly/Daily tabs and expandable period sections
 - Pull-to-refresh and real-time data sync
+- Daily streak tracker (consecutive days with logged expenses, shown on home screen)
+- Spending insights card (weekly comparisons, biggest daily expense, trend analysis)
+- Daily reminder notifications (expo-notifications, user-configurable time picker in settings)
 
 ## Design
 - Emerald green primary color palette
