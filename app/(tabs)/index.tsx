@@ -20,12 +20,17 @@ import ExpenseCard from '@/components/ExpenseCard';
 import {
   Expense,
   MonthlyBudget,
+  BudgetSettings,
   getExpenses,
   deleteExpense,
   getExpensesForMonth,
+  getExpensesForWeek,
+  getExpensesForToday,
+  getWeekDateRange,
   getMonthKey,
   getMonthLabel,
   getMonthlyBudget,
+  getBudgetSettingsApi,
   formatPKR,
   getTotalExpenses,
 } from '@/lib/storage';
@@ -34,13 +39,15 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
+  const [budgetSettings, setBudgetSettingsState] = useState<BudgetSettings | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const currentMonth = getMonthKey();
 
   const loadExpenses = useCallback(async () => {
-    const [all, mb] = await Promise.all([getExpenses(), getMonthlyBudget(currentMonth)]);
+    const [all, mb, bs] = await Promise.all([getExpenses(), getMonthlyBudget(currentMonth), getBudgetSettingsApi()]);
     setExpenses(all);
     setMonthlyBudgetState(mb);
+    setBudgetSettingsState(bs);
   }, [currentMonth]);
 
   useEffect(() => {
@@ -62,10 +69,14 @@ export default function HomeScreen() {
   const totalThisMonth = getTotalExpenses(monthExpenses);
   const recentExpenses = monthExpenses.slice(0, 5);
 
-  const todayExpenses = monthExpenses.filter(
-    e => new Date(e.date).toDateString() === new Date().toDateString()
-  );
+  const weekExpenses = getExpensesForWeek(expenses);
+  const weekTotal = getTotalExpenses(weekExpenses);
+  const weekRange = getWeekDateRange();
+  const weeklyLimit = budgetSettings?.weeklyLimit ?? 0;
+
+  const todayExpenses = getExpensesForToday(expenses);
   const todayTotal = getTotalExpenses(todayExpenses);
+  const dailyLimit = budgetSettings?.dailyLimit ?? 0;
 
   const handleEdit = (expense: Expense) => {
     router.push({
@@ -187,6 +198,152 @@ export default function HomeScreen() {
               <Text style={styles.summaryAmount}>{formatPKR(todayTotal)}</Text>
             </View>
           )}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(150).duration(500)}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({ pathname: '/period-expenses', params: { period: 'week' } });
+            }}
+            style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+          >
+            <View style={styles.periodCard}>
+              <View style={styles.periodHeader}>
+                <View style={[styles.periodIconBg, { backgroundColor: Colors.primary + '15' }]}>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+                </View>
+                <View style={styles.periodTitleArea}>
+                  <Text style={styles.periodTitle}>This Week</Text>
+                  <Text style={styles.periodSubtitle}>{weekRange.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              </View>
+              <View style={styles.periodAmounts}>
+                <View style={styles.periodAmountItem}>
+                  <Text style={styles.periodAmountLabel}>Spent</Text>
+                  <Text style={[
+                    styles.periodAmountValue,
+                    weeklyLimit > 0 && weekTotal > weeklyLimit && { color: Colors.danger },
+                  ]}>{formatPKR(weekTotal)}</Text>
+                </View>
+                {weeklyLimit > 0 ? (
+                  <>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>Budget</Text>
+                      <Text style={styles.periodAmountValue}>{formatPKR(weeklyLimit)}</Text>
+                    </View>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>
+                        {weeklyLimit - weekTotal >= 0 ? 'Left' : 'Over'}
+                      </Text>
+                      <Text style={[
+                        styles.periodAmountValue,
+                        { color: weeklyLimit - weekTotal >= 0 ? Colors.success : Colors.danger },
+                      ]}>{formatPKR(Math.abs(weeklyLimit - weekTotal))}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>Expenses</Text>
+                      <Text style={styles.periodAmountValue}>{weekExpenses.length}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+              {weeklyLimit > 0 ? (
+                <View style={styles.periodBarBg}>
+                  <View
+                    style={[
+                      styles.periodBarFill,
+                      {
+                        width: `${Math.min((weekTotal / weeklyLimit) * 100, 100)}%` as any,
+                        backgroundColor: weekTotal > weeklyLimit ? Colors.danger : Colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(180).duration(500)}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({ pathname: '/period-expenses', params: { period: 'today' } });
+            }}
+            style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+          >
+            <View style={styles.periodCard}>
+              <View style={styles.periodHeader}>
+                <View style={[styles.periodIconBg, { backgroundColor: Colors.accent + '20' }]}>
+                  <Ionicons name="today" size={18} color={Colors.accent} />
+                </View>
+                <View style={styles.periodTitleArea}>
+                  <Text style={styles.periodTitle}>Today</Text>
+                  <Text style={styles.periodSubtitle}>
+                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              </View>
+              <View style={styles.periodAmounts}>
+                <View style={styles.periodAmountItem}>
+                  <Text style={styles.periodAmountLabel}>Spent</Text>
+                  <Text style={[
+                    styles.periodAmountValue,
+                    dailyLimit > 0 && todayTotal > dailyLimit && { color: Colors.danger },
+                  ]}>{formatPKR(todayTotal)}</Text>
+                </View>
+                {dailyLimit > 0 ? (
+                  <>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>Budget</Text>
+                      <Text style={styles.periodAmountValue}>{formatPKR(dailyLimit)}</Text>
+                    </View>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>
+                        {dailyLimit - todayTotal >= 0 ? 'Left' : 'Over'}
+                      </Text>
+                      <Text style={[
+                        styles.periodAmountValue,
+                        { color: dailyLimit - todayTotal >= 0 ? Colors.success : Colors.danger },
+                      ]}>{formatPKR(Math.abs(dailyLimit - todayTotal))}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.periodDivider} />
+                    <View style={styles.periodAmountItem}>
+                      <Text style={styles.periodAmountLabel}>Expenses</Text>
+                      <Text style={styles.periodAmountValue}>{todayExpenses.length}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+              {dailyLimit > 0 ? (
+                <View style={styles.periodBarBg}>
+                  <View
+                    style={[
+                      styles.periodBarFill,
+                      {
+                        width: `${Math.min((todayTotal / dailyLimit) * 100, 100)}%` as any,
+                        backgroundColor: todayTotal > dailyLimit ? Colors.danger : Colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
@@ -339,5 +496,77 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
+  },
+  periodCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  periodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 10,
+  },
+  periodIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodTitleArea: {
+    flex: 1,
+  },
+  periodTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  periodSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  periodAmounts: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  periodAmountItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  periodAmountLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  periodAmountValue: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  periodDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: Colors.border,
+  },
+  periodBarBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.surface,
+    marginTop: 12,
+    overflow: 'hidden',
+  },
+  periodBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
 });
