@@ -27,6 +27,8 @@ import {
   getMonthlyBudgetForUser,
   setMonthlyBudgetForUser,
   deleteMonthlyBudgetForUser,
+  getBudgetSettings,
+  setBudgetSettings,
   updateUserName,
   updateUserPassword,
   deleteUserAccount,
@@ -583,6 +585,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("Set monthly budget error:", err);
       return res.status(500).json({ error: "Failed to set monthly budget" });
+    }
+  });
+
+  app.get("/api/budget-settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const settings = await getBudgetSettings(req.session.userId!);
+      return res.json(settings);
+    } catch (err) {
+      console.error("Get budget settings error:", err);
+      return res.status(500).json({ error: "Failed to fetch budget settings" });
+    }
+  });
+
+  app.put("/api/budget-settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { dailyLimit, weeklyLimit } = req.body;
+      const settings = await setBudgetSettings(req.session.userId!, { dailyLimit, weeklyLimit });
+      return res.json(settings);
+    } catch (err) {
+      console.error("Set budget settings error:", err);
+      return res.status(500).json({ error: "Failed to save budget settings" });
     }
   });
 

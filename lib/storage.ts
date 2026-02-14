@@ -169,3 +169,51 @@ export function getMonthLabel(monthKey: string): string {
   const date = new Date(year, month - 1);
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
+
+export interface BudgetSettings {
+  dailyLimit: number | null;
+  weeklyLimit: number | null;
+}
+
+export async function getBudgetSettingsApi(): Promise<BudgetSettings | null> {
+  try {
+    const res = await apiRequest('GET', '/api/budget-settings');
+    const data = await res.json();
+    if (!data) return null;
+    return { dailyLimit: data.dailyLimit, weeklyLimit: data.weeklyLimit };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveBudgetSettings(settings: Partial<BudgetSettings>): Promise<void> {
+  await apiRequest('PUT', '/api/budget-settings', settings);
+}
+
+export function getWeekDateRange(): { start: Date; end: Date; label: string } {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const startLabel = monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const endLabel = sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return { start: monday, end: sunday, label: `${startLabel} - ${endLabel}` };
+}
+
+export function getExpensesForWeek(expenses: Expense[]): Expense[] {
+  const { start, end } = getWeekDateRange();
+  return expenses.filter(e => {
+    const d = new Date(e.date);
+    return d >= start && d <= end;
+  });
+}
+
+export function getExpensesForToday(expenses: Expense[]): Expense[] {
+  const today = new Date();
+  return expenses.filter(e => new Date(e.date).toDateString() === today.toDateString());
+}

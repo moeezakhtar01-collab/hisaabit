@@ -159,9 +159,34 @@ export async function updateUserPassword(userId: string, hashedPassword: string)
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
 }
 
+export async function getBudgetSettings(userId: string): Promise<BudgetSettings | null> {
+  const [settings] = await db.select().from(budgetSettings).where(eq(budgetSettings.userId, userId)).limit(1);
+  return settings || null;
+}
+
+export async function setBudgetSettings(userId: string, data: { dailyLimit?: number | null; weeklyLimit?: number | null }): Promise<BudgetSettings> {
+  const existing = await db.select().from(budgetSettings).where(eq(budgetSettings.userId, userId)).limit(1);
+
+  if (existing.length > 0) {
+    const updateData: any = {};
+    if (data.dailyLimit !== undefined) updateData.dailyLimit = data.dailyLimit;
+    if (data.weeklyLimit !== undefined) updateData.weeklyLimit = data.weeklyLimit;
+    const [updated] = await db.update(budgetSettings).set(updateData).where(eq(budgetSettings.userId, userId)).returning();
+    return updated;
+  } else {
+    const [created] = await db.insert(budgetSettings).values({
+      userId,
+      dailyLimit: data.dailyLimit ?? null,
+      weeklyLimit: data.weeklyLimit ?? null,
+    }).returning();
+    return created;
+  }
+}
+
 export async function deleteUserAccount(userId: string): Promise<void> {
   await db.delete(expenses).where(eq(expenses.userId, userId));
   await db.delete(budgets).where(eq(budgets.userId, userId));
   await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+  await db.delete(budgetSettings).where(eq(budgetSettings.userId, userId));
   await db.delete(users).where(eq(users.id, userId));
 }
