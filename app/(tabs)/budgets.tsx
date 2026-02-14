@@ -233,6 +233,40 @@ export default function BudgetsScreen() {
     setWeeklyAmount('');
   };
 
+  const handleRemoveDailyBudget = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Remove Daily Budget', 'Are you sure you want to remove your daily budget?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          await saveBudgetSettings({ dailyLimit: null });
+          await loadData();
+          setShowDailyModal(false);
+          setDailyAmount('');
+        },
+      },
+    ]);
+  };
+
+  const handleRemoveWeeklyBudget = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Remove Weekly Budget', 'Are you sure you want to remove your weekly budget?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          await saveBudgetSettings({ weeklyLimit: null });
+          await loadData();
+          setShowWeeklyModal(false);
+          setWeeklyAmount('');
+        },
+      },
+    ]);
+  };
+
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
@@ -608,6 +642,18 @@ export default function BudgetsScreen() {
                 {budgetSettings?.dailyLimit ? 'Update Budget' : 'Set Budget'}
               </Text>
             </Pressable>
+            {budgetSettings?.dailyLimit ? (
+              <Pressable
+                onPress={handleRemoveDailyBudget}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}
+              >
+                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                <Text style={styles.deleteButtonText}>Remove Daily Budget</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -661,6 +707,18 @@ export default function BudgetsScreen() {
                 {budgetSettings?.weeklyLimit ? 'Update Budget' : 'Set Budget'}
               </Text>
             </Pressable>
+            {budgetSettings?.weeklyLimit ? (
+              <Pressable
+                onPress={handleRemoveWeeklyBudget}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}
+              >
+                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                <Text style={styles.deleteButtonText}>Remove Weekly Budget</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Modal>
