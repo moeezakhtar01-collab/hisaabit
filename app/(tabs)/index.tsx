@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,36 +34,6 @@ import {
   formatPKR,
   getTotalExpenses,
 } from '@/lib/storage';
-
-function calculateStreak(expenses: Expense[]): number {
-  if (expenses.length === 0) return 0;
-  const daysWithExpenses = new Set<string>();
-  for (const e of expenses) {
-    daysWithExpenses.add(new Date(e.date).toISOString().slice(0, 10));
-  }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = today.toISOString().slice(0, 10);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = yesterday.toISOString().slice(0, 10);
-  if (!daysWithExpenses.has(todayKey) && !daysWithExpenses.has(yesterdayKey)) {
-    return 0;
-  }
-  let startDate = daysWithExpenses.has(todayKey) ? today : yesterday;
-  let streak = 0;
-  const d = new Date(startDate);
-  while (true) {
-    const key = d.toISOString().slice(0, 10);
-    if (daysWithExpenses.has(key)) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 
 export default function HomeScreen() {
@@ -108,8 +78,6 @@ export default function HomeScreen() {
   const todayExpenses = getExpensesForToday(expenses);
   const todayTotal = getTotalExpenses(todayExpenses);
   const dailyLimit = budgetSettings?.dailyLimit ?? 0;
-
-  const streak = useMemo(() => calculateStreak(expenses), [expenses]);
 
   const handleEdit = (expense: Expense) => {
     router.push({
@@ -232,30 +200,6 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
-
-        {streak > 0 ? (
-          <Animated.View entering={FadeInDown.delay(120).duration(500)} style={styles.engagementRow}>
-            <View style={styles.streakCard}>
-              <View style={styles.streakFlameBg}>
-                <Ionicons name="flame" size={20} color="#F97316" />
-              </View>
-              <View style={styles.streakInfo}>
-                <Text style={styles.streakCount}>{streak}-day streak</Text>
-                <Text style={styles.streakSubtext}>
-                  {streak >= 7 ? 'Amazing consistency!' : streak >= 3 ? 'Keep it up!' : 'Great start!'}
-                </Text>
-              </View>
-              <View style={styles.streakDots}>
-                {Array.from({ length: Math.min(streak, 7) }, (_, i) => (
-                  <View key={i} style={[styles.streakDot, { backgroundColor: '#F97316' }]} />
-                ))}
-                {streak < 7 ? Array.from({ length: 7 - Math.min(streak, 7) }, (_, i) => (
-                  <View key={`empty-${i}`} style={[styles.streakDot, { backgroundColor: Colors.border }]} />
-                )) : null}
-              </View>
-            </View>
-          </Animated.View>
-        ) : null}
 
         <Animated.View entering={FadeInDown.delay(150).duration(500)}>
           <Pressable
@@ -624,51 +568,6 @@ const styles = StyleSheet.create({
   },
   periodBarFill: {
     height: '100%',
-    borderRadius: 3,
-  },
-  engagementRow: {
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  streakCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#FDBA7420',
-    gap: 10,
-  },
-  streakFlameBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FED7AA40',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  streakInfo: {
-    flex: 1,
-    gap: 1,
-  },
-  streakCount: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    color: '#C2410C',
-  },
-  streakSubtext: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    color: '#EA580C',
-  },
-  streakDots: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  streakDot: {
-    width: 6,
-    height: 6,
     borderRadius: 3,
   },
 });
