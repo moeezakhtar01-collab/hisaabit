@@ -7,7 +7,7 @@ Hisaab is a mobile expense tracking app built specifically for Pakistani househo
 - **Frontend**: Expo React Native with Expo Router (file-based routing)
 - **Backend**: Express.js (serves landing page and API)
 - **Database**: PostgreSQL (Neon) via Drizzle ORM (postgres-js driver) for user accounts
-- **Storage**: AsyncStorage for local expense data persistence
+- **Storage**: Server-side PostgreSQL for all data persistence
 - **Auth**: express-session + connect-pg-simple + bcrypt, session-based auth
 - **Fonts**: Inter (Google Fonts)
 - **State**: useState + useEffect with polling for data refresh; AuthContext for auth state
@@ -25,7 +25,8 @@ Hisaab is a mobile expense tracking app built specifically for Pakistani househo
 - `server/routes.ts` - API routes (auth + voice expense)
 - `server/storage.ts` - Database CRUD operations for users
 - `server/db.ts` - Drizzle ORM + postgres-js database connection
-- `shared/schema.ts` - Drizzle schema (users table)
+- `app/period-expenses.tsx` - Modal screen for viewing daily/weekly expense lists
+- `shared/schema.ts` - Drizzle schema (users, expenses, budgets, monthlyBudgets, budgetSettings tables)
 - `constants/colors.ts` - Theme colors with Pakistani-inspired green palette
 
 ## Key Features
@@ -34,7 +35,8 @@ Hisaab is a mobile expense tracking app built specifically for Pakistani househo
 - Quick expense logging with PKR currency
 - Voice expense entry via AI (Whisper transcription + GPT extraction)
 - 13 Pakistani-relevant expense categories
-- Monthly budget tracking per category
+- Daily, weekly, and monthly budget tracking
+- Tappable daily/weekly summary cards on home screen showing expenses for the period
 - Spending breakdown with visual charts
 - Expense history with category filtering and month navigation
 - Pull-to-refresh and real-time data sync
