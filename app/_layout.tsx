@@ -106,6 +106,14 @@ function AuthGate() {
           animation: "slide_from_bottom",
         }}
       />
+      <Stack.Screen
+        name="period-expenses"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
     </Stack>
   );
 }
