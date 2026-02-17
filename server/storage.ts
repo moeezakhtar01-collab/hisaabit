@@ -55,7 +55,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
 }
 
 export async function getExpensesByUser(userId: string): Promise<Expense[]> {
-  return await db.select().from(expenses).where(eq(expenses.userId, userId)).orderBy(desc(expenses.createdAt));
+  return await db.select().from(expenses).where(eq(expenses.userId, userId)).orderBy(desc(expenses.date), desc(expenses.createdAt));
 }
 
 export async function addExpense(userId: string, data: { amount: number; category: string; note: string; date: string }): Promise<Expense> {
