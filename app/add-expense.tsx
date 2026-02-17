@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,35 @@ import CategoryPill from '@/components/CategoryPill';
 import { addExpense, updateExpense, CATEGORIES, formatPKR } from '@/lib/storage';
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000, 2500, 5000];
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatDateLabel(date: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (target.getTime() === today.getTime()) return 'Today';
+  if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+
+  return `${DAYS_OF_WEEK[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function generateDateOptions(): Date[] {
+  const dates: Date[] = [];
+  const today = new Date();
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    d.setHours(12, 0, 0, 0);
+    dates.push(d);
+  }
+  return dates;
+}
 
 export default function AddExpenseScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +66,10 @@ export default function AddExpenseScreen() {
   const [amount, setAmount] = useState(params.editAmount || '');
   const [selectedCategory, setSelectedCategory] = useState(params.editCategory || '');
   const [note, setNote] = useState(params.editNote || '');
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    params.editDate ? new Date(params.editDate) : new Date()
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleAmountChange = (text: string) => {
@@ -46,6 +80,12 @@ export default function AddExpenseScreen() {
   const handleQuickAmount = (value: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAmount(value.toString());
+  };
+
+  const handleDateSelect = (date: Date) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDate(date);
+    setShowDatePicker(false);
   };
 
   const handleSave = async () => {
@@ -61,19 +101,24 @@ export default function AddExpenseScreen() {
     setSaving(true);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const expenseDate = new Date(selectedDate);
+      const now = new Date();
+      expenseDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
       if (isEditing) {
         await updateExpense(params.editId!, {
           amount: parseInt(amount, 10),
           category: selectedCategory,
           note: note.trim(),
-          date: params.editDate || new Date().toISOString(),
+          date: expenseDate.toISOString(),
         });
       } else {
         await addExpense({
           amount: parseInt(amount, 10),
           category: selectedCategory,
           note: note.trim(),
-          date: new Date().toISOString(),
+          date: expenseDate.toISOString(),
         });
       }
       router.back();
@@ -84,6 +129,7 @@ export default function AddExpenseScreen() {
   };
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const isToday = formatDateLabel(selectedDate) === 'Today';
 
   return (
     <KeyboardAvoidingView
@@ -122,6 +168,25 @@ export default function AddExpenseScreen() {
               {formatPKR(parseInt(amount) || 0)}
             </Animated.Text>
           ) : null}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(50).duration(400)}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowDatePicker(true);
+            }}
+            style={({ pressed }) => [
+              styles.dateSelector,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="calendar-outline" size={18} color={isToday ? Colors.textSecondary : Colors.primary} />
+            <Text style={[styles.dateSelectorText, !isToday && { color: Colors.primary }]}>
+              {formatDateLabel(selectedDate)}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+          </Pressable>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
@@ -196,6 +261,48 @@ export default function AddExpenseScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
+          <Pressable style={[styles.datePickerContainer, { paddingBottom: insets.bottom + 16 }]} onPress={e => e.stopPropagation()}>
+            <View style={styles.datePickerHeader}>
+              <Text style={styles.datePickerTitle}>Select Date</Text>
+              <Pressable onPress={() => setShowDatePicker(false)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
+              {generateDateOptions().map((date, index) => {
+                const label = formatDateLabel(date);
+                const isSelected = date.toDateString() === selectedDate.toDateString();
+                return (
+                  <Pressable
+                    key={index}
+                    onPress={() => handleDateSelect(date)}
+                    style={({ pressed }) => [
+                      styles.dateOption,
+                      isSelected && styles.dateOptionSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={[styles.dateOptionText, isSelected && styles.dateOptionTextSelected]}>
+                      {label}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -249,6 +356,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
     color: Colors.primary,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  dateSelectorText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.textSecondary,
   },
   sectionLabel: {
     fontSize: 15,
@@ -312,5 +436,56 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
+    paddingTop: 16,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  datePickerTitle: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  dateList: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  dateOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginVertical: 2,
+  },
+  dateOptionSelected: {
+    backgroundColor: Colors.primary + '12',
+  },
+  dateOptionText: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.text,
+  },
+  dateOptionTextSelected: {
+    fontFamily: 'Inter_700Bold',
+    color: Colors.primary,
   },
 });
