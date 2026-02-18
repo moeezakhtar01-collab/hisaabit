@@ -655,21 +655,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English. A single message may mention MULTIPLE separate expenses — you must extract ALL of them.
+            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English. A single message may mention MULTIPLE separate expenses — you must extract ALL of them. Today's date is ${new Date().toISOString().split('T')[0]}.
 
 For EACH expense, extract:
 1. amount: The amount in PKR (Pakistani Rupees). Convert words like "hazaar" (thousand), "sau" (hundred), "lakh" to numbers. "paanch sau" = 500, "do hazaar" = 2000, "teen sau pachaas" = 350.
 2. category: One of these exact keys: ${categoryList}. Match based on context.
 3. note: A brief description of the expense in English.
+4. date: The date the expense was made as an ISO date string (YYYY-MM-DD). Interpret relative dates like "kal" / "yesterday", "parso" / "day before yesterday", "aaj" / "today", "pichle hafte" / "last week", "Monday", etc. relative to today. If no date is mentioned, use today's date.
 
 ALWAYS respond with a JSON array, even for a single expense:
-[{"amount": number, "category": "key", "note": "description"}]
+[{"amount": number, "category": "key", "note": "description", "date": "YYYY-MM-DD"}]
 
 Examples:
-- "kiryana ka saman liya paanch sau ka aur bijli ka bill do hazaar tha" → [{"amount":500,"category":"kiryana","note":"Grocery shopping"},{"amount":2000,"category":"bijliBill","note":"Electricity bill"}]
-- "aaj chai pi teen sau ki" → [{"amount":300,"category":"chaiNashta","note":"Tea"}]
+- "kiryana ka saman liya paanch sau ka aur bijli ka bill do hazaar tha" → [{"amount":500,"category":"kiryana","note":"Grocery shopping","date":"${new Date().toISOString().split('T')[0]}"},{"amount":2000,"category":"bijliBill","note":"Electricity bill","date":"${new Date().toISOString().split('T')[0]}"}]
+- "kal chai pi teen sau ki" → [{"amount":300,"category":"chaiNashta","note":"Tea","date":"${(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })()}"}]
 
-If you cannot determine the amount for an expense, use 0. If you cannot determine the category, use "general".`,
+If you cannot determine the amount for an expense, use 0. If you cannot determine the category, use "general". If no date is mentioned, use today's date.`,
           },
           {
             role: "user",
@@ -680,7 +681,7 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
 
       const content = extraction.choices[0]?.message?.content || "";
 
-      let expenses: { amount: number; category: string; note: string }[];
+      let expenses: { amount: number; category: string; note: string; date?: string }[];
       try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
@@ -697,12 +698,18 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
         expenses = [{ amount: 0, category: "general", note: transcript }];
       }
 
+      const todayStr = new Date().toISOString().split('T')[0];
       const validatedExpenses = expenses.map(e => {
         const validCategory = CATEGORIES.find(c => c.key === e.category);
+        let dateStr = todayStr;
+        if (e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+          dateStr = e.date;
+        }
         return {
           amount: Math.max(0, Math.round(e.amount || 0)),
           category: validCategory ? e.category : "general",
           note: e.note || "",
+          date: dateStr,
         };
       });
 

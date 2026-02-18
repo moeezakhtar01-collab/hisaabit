@@ -37,11 +37,41 @@ interface ExtractedExpense {
   amount: number;
   category: string;
   note: string;
+  date: string;
 }
 
 interface VoiceResult {
   transcript: string;
   expenses: ExtractedExpense[];
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatDateLabel(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (target.getTime() === today.getTime()) return 'Today';
+  if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+
+  return `${DAYS_OF_WEEK[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}
+
+function generateDateOptions(): string[] {
+  const dates: string[] = [];
+  const today = new Date();
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
 }
 
 export default function VoiceExpenseScreen() {
@@ -55,6 +85,7 @@ export default function VoiceExpenseScreen() {
   const [editingField, setEditingField] = useState<{ index: number; field: 'amount' | 'note' } | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
+  const [datePickerIndex, setDatePickerIndex] = useState<number | null>(null);
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -188,8 +219,15 @@ export default function VoiceExpenseScreen() {
 
       if (!data.expenses && (data as any).amount !== undefined) {
         const legacy = data as any;
-        data.expenses = [{ amount: legacy.amount, category: legacy.category, note: legacy.note }];
+        const todayStr = new Date().toISOString().split('T')[0];
+        data.expenses = [{ amount: legacy.amount, category: legacy.category, note: legacy.note, date: legacy.date || todayStr }];
       }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      data.expenses = data.expenses.map(e => ({
+        ...e,
+        date: e.date || todayStr,
+      }));
 
       setResult(data);
       setState('result');
@@ -213,11 +251,15 @@ export default function VoiceExpenseScreen() {
     setSaving(true);
     try {
       for (const expense of validExpenses) {
+        const expenseDate = new Date(expense.date + 'T12:00:00');
+        const now = new Date();
+        expenseDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
         await addExpense({
           amount: expense.amount,
           category: expense.category,
           note: expense.note,
-          date: new Date().toISOString(),
+          date: expenseDate.toISOString(),
         });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -234,6 +276,7 @@ export default function VoiceExpenseScreen() {
     setRecordingDuration(0);
     setEditingField(null);
     setCategoryPickerIndex(null);
+    setDatePickerIndex(null);
   };
 
   const updateExpenseField = (index: number, field: keyof ExtractedExpense, value: string | number) => {
@@ -275,6 +318,18 @@ export default function VoiceExpenseScreen() {
     if (categoryPickerIndex === null) return;
     updateExpenseField(categoryPickerIndex, 'category', catKey);
     setCategoryPickerIndex(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const openDatePicker = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDatePickerIndex(index);
+  };
+
+  const selectDate = (dateStr: string) => {
+    if (datePickerIndex === null) return;
+    updateExpenseField(datePickerIndex, 'date', dateStr);
+    setDatePickerIndex(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -471,6 +526,27 @@ export default function VoiceExpenseScreen() {
                 <View style={styles.extractedDivider} />
 
                 <Pressable
+                  onPress={() => openDatePicker(index)}
+                  style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
+                >
+                  <View style={styles.extractedIconBg}>
+                    <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+                  </View>
+                  <View style={styles.extractedDetail}>
+                    <Text style={styles.extractedLabel}>Date</Text>
+                    <Text style={[
+                      styles.extractedValue,
+                      formatDateLabel(expense.date) !== 'Today' && { color: Colors.primary },
+                    ]}>
+                      {formatDateLabel(expense.date)}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                </Pressable>
+
+                <View style={styles.extractedDivider} />
+
+                <Pressable
                   onPress={() => startEditField(index, 'note')}
                   style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
                 >
@@ -572,6 +648,41 @@ export default function VoiceExpenseScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={datePickerIndex !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDatePickerIndex(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setDatePickerIndex(null)}>
+          <Pressable style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select Date</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalCategoryScroll}>
+              {generateDateOptions().map((dateStr) => {
+                const isSelected = datePickerIndex !== null && result?.expenses[datePickerIndex]?.date === dateStr;
+                return (
+                  <Pressable
+                    key={dateStr}
+                    onPress={() => selectDate(dateStr)}
+                    style={({ pressed }) => [
+                      styles.dateOption,
+                      isSelected && styles.dateOptionSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={[styles.dateOptionText, isSelected && styles.dateOptionTextSelected]}>
+                      {formatDateLabel(dateStr)}
+                    </Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -612,12 +723,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   instructionText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-    maxWidth: 280,
   },
   recordButton: {
     width: 88,
@@ -626,11 +736,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 12,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 8,
   },
   manualLink: {
@@ -639,11 +749,10 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 12,
     paddingVertical: 8,
-    paddingHorizontal: 16,
   },
   manualLinkText: {
     fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
     color: Colors.primary,
   },
   recordingContainer: {
@@ -652,37 +761,35 @@ const styles = StyleSheet.create({
   },
   recordingLabel: {
     fontSize: 20,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
   },
   durationText: {
     fontSize: 40,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-    letterSpacing: 2,
+    color: Colors.primary,
   },
   pulseContainer: {
     width: 120,
     height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 12,
   },
   pulseRing: {
     position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#E53E3E',
+    backgroundColor: Colors.danger,
   },
   stopButton: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E53E3E',
+    backgroundColor: Colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
+    zIndex: 1,
   },
   stopSquare: {
     width: 24,
@@ -691,9 +798,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   recordingHint: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
+    marginTop: 8,
   },
   processingContainer: {
     alignItems: 'center',
@@ -701,11 +809,11 @@ const styles = StyleSheet.create({
   },
   processingText: {
     fontSize: 18,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
     color: Colors.text,
   },
   processingHint: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
   },
@@ -716,7 +824,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   resultContainer: {
-    gap: 14,
+    gap: 16,
   },
   transcriptCard: {
     flexDirection: 'row',
@@ -740,12 +848,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary + '10',
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: Colors.primary + '12',
+    borderRadius: 12,
     paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Colors.primary + '25',
+    paddingVertical: 10,
   },
   summaryText: {
     fontSize: 14,
@@ -755,30 +861,39 @@ const styles = StyleSheet.create({
   extractedCard: {
     backgroundColor: Colors.card,
     borderRadius: 16,
-    padding: 18,
     borderWidth: 1,
-    borderColor: Colors.primary + '30',
+    borderColor: Colors.border,
+    overflow: 'hidden',
   },
   expenseNumberBadge: {
     position: 'absolute',
-    top: -8,
-    right: 12,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.primary,
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primary + '18',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   expenseNumberText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: '#fff',
+    color: Colors.primary,
   },
   extractedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  editableRow: {
+    borderRadius: 0,
+  },
+  editableRowPressed: {
+    backgroundColor: Colors.border + '30',
   },
   extractedIconBg: {
     width: 36,
@@ -790,22 +905,35 @@ const styles = StyleSheet.create({
   },
   extractedDetail: {
     flex: 1,
+    gap: 2,
   },
   extractedLabel: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
     color: Colors.textSecondary,
-    marginBottom: 2,
   },
   extractedValue: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.text,
   },
+  inlineInput: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.primary,
+    paddingVertical: 2,
+    minWidth: 80,
+  },
+  placeholderNote: {
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
   extractedDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 12,
+    marginHorizontal: 16,
   },
   saveButton: {
     flexDirection: 'row',
@@ -815,7 +943,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 16,
     padding: 18,
-    marginTop: 4,
   },
   saveButtonText: {
     fontSize: 17,
@@ -823,20 +950,18 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   resultActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
+    alignItems: 'center',
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
   retryText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
     color: Colors.primary,
   },
   permissionContainer: {
@@ -850,7 +975,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.border + '60',
+    backgroundColor: Colors.border + '40',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -862,56 +987,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   permissionDesc: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-    maxWidth: 280,
   },
   permissionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 16,
     paddingHorizontal: 24,
+    paddingVertical: 16,
     marginTop: 8,
   },
   permissionButtonText: {
     fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
     color: '#fff',
-  },
-  editableRow: {
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    marginHorizontal: -4,
-  },
-  editableRowPressed: {
-    backgroundColor: Colors.primary + '08',
-  },
-  inlineInput: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    paddingVertical: 2,
-    paddingHorizontal: 0,
-    margin: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: Colors.primary,
-    minWidth: 80,
-  },
-  placeholderNote: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontStyle: 'italic' as const,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
@@ -919,37 +1018,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 12,
-    paddingHorizontal: 20,
-    maxHeight: '70%' as any,
+    maxHeight: '60%',
   },
   modalHandle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: Colors.border,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: 'Inter_700Bold',
     color: Colors.text,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   modalCategoryScroll: {
-    flexGrow: 0,
+    paddingHorizontal: 16,
   },
   modalCategoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     borderRadius: 12,
-    marginBottom: 2,
+    marginVertical: 2,
   },
   modalCategoryRowSelected: {
-    backgroundColor: Colors.primary + '10',
+    backgroundColor: Colors.primary + '12',
   },
   modalCategoryIcon: {
     width: 40,
@@ -964,12 +1063,33 @@ const styles = StyleSheet.create({
   },
   modalCategoryLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_500Medium',
     color: Colors.text,
   },
   modalCategoryLabelSelected: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
+    color: Colors.primary,
+  },
+  dateOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginVertical: 2,
+  },
+  dateOptionSelected: {
+    backgroundColor: Colors.primary + '12',
+  },
+  dateOptionText: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.text,
+  },
+  dateOptionTextSelected: {
+    fontFamily: 'Inter_700Bold',
     color: Colors.primary,
   },
 });
