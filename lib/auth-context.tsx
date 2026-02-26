@@ -6,6 +6,8 @@ interface AuthUser {
   id: string;
   email: string;
   name: string;
+  subscriptionPlan: string;
+  voiceUsageCount: number;
 }
 
 interface AuthContextValue {
@@ -19,6 +21,7 @@ interface AuthContextValue {
   updateProfile: (name: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
   deleteAccount: (password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -134,6 +137,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.message;
   };
 
+  const refreshUser = async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(new URL('/api/auth/me', baseUrl).toString(), {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      }
+    } catch {}
+  };
+
   const deleteAccount = async (password: string) => {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/account', baseUrl).toString(), {
@@ -158,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateProfile,
     changePassword,
     deleteAccount,
+    refreshUser,
   }), [user, isLoading]);
 
   return (

@@ -75,6 +75,21 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/subscription')} testID="subscription-menu-item">
+              <View style={[styles.menuIconBg, { backgroundColor: '#F59E0B15' }]}>
+                <Ionicons name="diamond-outline" size={18} color="#F59E0B" />
+              </View>
+              <Text style={styles.menuLabel}>Subscription</Text>
+              <View style={styles.planBadge}>
+                <Text style={[styles.planBadgeText, user?.subscriptionPlan === 'pro' && styles.proPlanBadgeText]}>
+                  {(user?.subscriptionPlan || 'free').toUpperCase()}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
             <Pressable style={styles.menuItem} onPress={() => navigateTo('/notifications')} testID="notifications-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#3B82F615' }]}>
                 <Ionicons name="notifications-outline" size={18} color="#3B82F6" />
@@ -252,6 +267,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.danger,
+  },
+  planBadge: {
+    backgroundColor: Colors.primary + '12',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginRight: 4,
+  },
+  planBadgeText: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.primary,
+  },
+  proPlanBadgeText: {
+    color: '#F59E0B',
   },
   versionText: {
     fontSize: 12,

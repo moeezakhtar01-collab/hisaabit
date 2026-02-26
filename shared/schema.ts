@@ -14,6 +14,8 @@ export const users = pgTable("users", {
   confirmationToken: text("confirmation_token"),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
+  subscriptionPlan: text("subscription_plan").default("free").notNull(),
+  voiceUsageCount: integer("voice_usage_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

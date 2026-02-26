@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import { users, expenses, budgets, monthlyBudgets, budgetSettings, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget, type BudgetSettings } from "@shared/schema";
 
@@ -189,4 +189,25 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
   await db.delete(budgetSettings).where(eq(budgetSettings.userId, userId));
   await db.delete(users).where(eq(users.id, userId));
+}
+
+export async function getSubscriptionInfo(userId: string): Promise<{ plan: string; voiceUsageCount: number } | null> {
+  const [user] = await db.select({
+    plan: users.subscriptionPlan,
+    voiceUsageCount: users.voiceUsageCount,
+  }).from(users).where(eq(users.id, userId)).limit(1);
+  return user || null;
+}
+
+export async function updateSubscriptionPlan(userId: string, plan: string): Promise<void> {
+  await db.update(users).set({ subscriptionPlan: plan }).where(eq(users.id, userId));
+}
+
+export async function incrementVoiceUsage(userId: string): Promise<number> {
+  const [updated] = await db
+    .update(users)
+    .set({ voiceUsageCount: sql`voice_usage_count + 1` })
+    .where(eq(users.id, userId))
+    .returning({ voiceUsageCount: users.voiceUsageCount });
+  return updated.voiceUsageCount;
 }

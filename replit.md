@@ -19,6 +19,7 @@ Hisaabit is a mobile expense tracking app built specifically for Pakistani house
 - `app/forgot-password.tsx` - Password reset request screen
 - `app/add-expense.tsx` - Modal screen for adding expenses
 - `app/voice-expense.tsx` - Voice expense entry (OpenAI Whisper + GPT-4o-mini)
+- `app/subscription.tsx` - Subscription plan management (Free/Pro)
 - `components/` - Reusable UI components (ExpenseCard, CategoryPill, BudgetBar, SpendingChart)
 - `lib/storage.ts` - AsyncStorage CRUD operations and category definitions
 - `lib/auth-context.tsx` - AuthProvider and useAuth hook for auth state management
@@ -33,7 +34,7 @@ Hisaabit is a mobile expense tracking app built specifically for Pakistani house
 - User authentication (register, login, password reset)
 - Protected routes (auth gate in root layout)
 - Quick expense logging with PKR currency
-- Voice expense entry via AI (Whisper transcription + GPT extraction)
+- Voice expense entry via AI (Whisper transcription + GPT extraction) with date detection
 - 13 Pakistani-relevant expense categories
 - Daily, weekly, and monthly budget tracking
 - Tappable daily/weekly summary cards on home screen showing expenses for the period
@@ -41,6 +42,7 @@ Hisaabit is a mobile expense tracking app built specifically for Pakistani house
 - Expense history with Monthly/Weekly/Daily tabs and expandable period sections
 - Pull-to-refresh and real-time data sync
 - Daily reminder notifications (expo-notifications, user-configurable time picker in settings)
+- Subscription plans (Free/Pro): Free has 10 AI voice entries limit + single expense per recording; Pro has unlimited voice + multi-expense per recording
 
 ## Design
 - Emerald green primary color palette

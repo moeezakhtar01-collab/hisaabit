@@ -32,6 +32,9 @@ import {
   updateUserName,
   updateUserPassword,
   deleteUserAccount,
+  getSubscriptionInfo,
+  updateSubscriptionPlan,
+  incrementVoiceUsage,
 } from "./storage";
 import { randomBytes } from "crypto";
 
@@ -254,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.userId = user.id;
-      return res.json({ user: { id: user.id, email: user.email, name: user.name } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -352,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      return res.json({ user: { id: user.id, email: user.email, name: user.name } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
     } catch (err) {
       console.error("Auth check error:", err);
       return res.status(500).json({ error: "Something went wrong" });
@@ -376,7 +379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name is required" });
       }
       const user = await updateUserName(req.session.userId!, name.trim());
-      return res.json({ user: { id: user.id, email: user.email, name: user.name } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
     } catch (err) {
       console.error("Update profile error:", err);
       return res.status(500).json({ error: "Failed to update profile" });
@@ -609,10 +612,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/subscription", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const info = await getSubscriptionInfo(req.session.userId!);
+      if (!info) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      return res.json(info);
+    } catch (err) {
+      console.error("Get subscription error:", err);
+      return res.status(500).json({ error: "Failed to get subscription info" });
+    }
+  });
+
+  app.put("/api/subscription", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { plan } = req.body;
+      if (!plan || !['free', 'pro'].includes(plan)) {
+        return res.status(400).json({ error: "Invalid plan" });
+      }
+      await updateSubscriptionPlan(req.session.userId!, plan);
+      const info = await getSubscriptionInfo(req.session.userId!);
+      return res.json(info);
+    } catch (err) {
+      console.error("Update subscription error:", err);
+      return res.status(500).json({ error: "Failed to update subscription" });
+    }
+  });
+
   app.post("/api/voice-expense", upload.single("audio"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
+      }
+
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const subInfo = await getSubscriptionInfo(req.session.userId);
+      const plan = subInfo?.plan || 'free';
+      const voiceUsageCount = subInfo?.voiceUsageCount || 0;
+
+      if (plan === 'free' && voiceUsageCount >= 10) {
+        return res.status(403).json({ error: "You've used all 10 free AI voice entries. Upgrade to Pro for unlimited voice expense logging.", code: "VOICE_LIMIT_REACHED" });
       }
 
       const apiKey = process.env.OPENAI_API_KEY;
@@ -713,9 +756,17 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
         };
       });
 
+      await incrementVoiceUsage(req.session.userId!);
+
+      let finalExpenses = validatedExpenses;
+      if (plan === 'free') {
+        finalExpenses = validatedExpenses.slice(0, 1);
+      }
+
       return res.json({
         transcript,
-        expenses: validatedExpenses,
+        expenses: finalExpenses,
+        plan,
       });
     } catch (err: any) {
       console.error("Voice expense error:", err);

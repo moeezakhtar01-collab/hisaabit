@@ -30,6 +30,9 @@ import Animated, {
 import Colors from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
+import { useAuth } from '@/lib/auth-context';
+
+const FREE_VOICE_LIMIT = 10;
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
 
@@ -76,6 +79,7 @@ function generateDateOptions(): string[] {
 
 export default function VoiceExpenseScreen() {
   const insets = useSafeAreaInsets();
+  const { user, refreshUser } = useAuth();
   const [state, setState] = useState<VoiceState>('idle');
   const [result, setResult] = useState<VoiceResult | null>(null);
   const [saving, setSaving] = useState(false);
@@ -86,6 +90,10 @@ export default function VoiceExpenseScreen() {
   const [editingValue, setEditingValue] = useState('');
   const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
   const [datePickerIndex, setDatePickerIndex] = useState<number | null>(null);
+
+  const currentPlan = user?.subscriptionPlan || 'free';
+  const voiceUsageCount = user?.voiceUsageCount || 0;
+  const isLimitReached = currentPlan === 'free' && voiceUsageCount >= FREE_VOICE_LIMIT;
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -208,10 +216,23 @@ export default function VoiceExpenseScreen() {
       const res = await fetchFn(apiUrl, {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        if ((errData as any).code === 'VOICE_LIMIT_REACHED') {
+          setState('idle');
+          Alert.alert(
+            'Voice Limit Reached',
+            'You\'ve used all 10 free AI voice entries. Upgrade to Pro for unlimited voice expense logging.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'View Plans', onPress: () => { router.back(); router.push('/subscription' as any); } },
+            ]
+          );
+          return;
+        }
         throw new Error((errData as any).error || 'Failed to process voice');
       }
 
@@ -232,6 +253,7 @@ export default function VoiceExpenseScreen() {
       setResult(data);
       setState('result');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refreshUser();
     } catch (err: any) {
       console.error('Voice processing error:', err);
       setState('idle');
@@ -393,19 +415,53 @@ export default function VoiceExpenseScreen() {
         <View style={[styles.body, { paddingBottom: insets.bottom + 20 }]}>
           {state === 'idle' && (
             <Animated.View entering={FadeIn.duration(400)} style={styles.idleContainer}>
-              <Text style={styles.instructionTitle}>Tap to Record</Text>
-              <Text style={styles.instructionText}>
-                Speak naturally about your expenses.{'\n'}
-                You can mention multiple expenses at once!
-              </Text>
+              {isLimitReached ? (
+                <>
+                  <View style={styles.limitReachedIcon}>
+                    <Ionicons name="lock-closed" size={36} color={Colors.textSecondary} />
+                  </View>
+                  <Text style={styles.instructionTitle}>Voice Limit Reached</Text>
+                  <Text style={styles.instructionText}>
+                    You've used all {FREE_VOICE_LIMIT} free AI voice entries.{'\n'}
+                    Upgrade to Pro for unlimited access.
+                  </Text>
+                  <Pressable
+                    onPress={() => { router.back(); router.push('/subscription' as any); }}
+                    style={({ pressed }) => [styles.upgradePromptButton, pressed && { opacity: 0.9 }]}
+                    testID="upgrade-from-voice"
+                  >
+                    <Ionicons name="flash" size={18} color="#fff" />
+                    <Text style={styles.upgradePromptText}>View Plans</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.instructionTitle}>Tap to Record</Text>
+                  <Text style={styles.instructionText}>
+                    Speak naturally about your expenses.{'\n'}
+                    {currentPlan === 'pro'
+                      ? 'You can mention multiple expenses at once!'
+                      : 'One expense per recording on Free plan.'}
+                  </Text>
 
-              <Pressable
-                onPress={startRecording}
-                style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
-                testID="start-recording"
-              >
-                <Ionicons name="mic" size={36} color="#fff" />
-              </Pressable>
+                  {currentPlan === 'free' && (
+                    <View style={styles.usageHint}>
+                      <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+                      <Text style={styles.usageHintText}>
+                        {voiceUsageCount} of {FREE_VOICE_LIMIT} free entries used
+                      </Text>
+                    </View>
+                  )}
+
+                  <Pressable
+                    onPress={startRecording}
+                    style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                    testID="start-recording"
+                  >
+                    <Ionicons name="mic" size={36} color="#fff" />
+                  </Pressable>
+                </>
+              )}
 
               <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
                 <Ionicons name="create-outline" size={16} color={Colors.primary} />
@@ -1091,5 +1147,43 @@ const styles = StyleSheet.create({
   dateOptionTextSelected: {
     fontFamily: 'Inter_700Bold',
     color: Colors.primary,
+  },
+  limitReachedIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.border + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  upgradePromptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B',
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  upgradePromptText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  usageHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.border + '30',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  usageHintText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
   },
 });
