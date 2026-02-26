@@ -216,9 +216,15 @@ export default function SubscriptionScreen() {
             </View>
             <View>
               <Text style={styles.planName}>Pro</Text>
-              <Text style={styles.planPrice}>Coming Soon</Text>
+              <Text style={styles.planPrice}>Rs. 99/month</Text>
             </View>
           </View>
+
+          <View style={styles.bundleBadge}>
+            <Ionicons name="pricetag" size={14} color="#F59E0B" />
+            <Text style={styles.bundleText}>Save with 3-month bundle — Rs. 150 (Rs. 50/mo)</Text>
+          </View>
+
           <View style={styles.featureList}>
             {PRO_FEATURES.map((feature, i) => (
               <View key={i} style={styles.featureRow}>
@@ -412,5 +418,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.textSecondary,
+  },
+  bundleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B10',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#F59E0B25',
+  },
+  bundleText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#D97706',
+    flex: 1,
   },
 });
