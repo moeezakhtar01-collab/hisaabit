@@ -98,13 +98,11 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
   const resend = new Resend(resendApiKey);
 
   let appUrl: string;
-  if (requestHost) {
+  if (process.env.APP_URL) {
+    appUrl = process.env.APP_URL;
+  } else if (requestHost) {
     const protocol = requestHost.includes("localhost") ? "http" : "https";
     appUrl = `${protocol}://${requestHost}`;
-  } else if (process.env.REPLIT_DEV_DOMAIN) {
-    appUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
-  } else if (process.env.REPLIT_DEPLOYMENT_URL) {
-    appUrl = `https://${process.env.REPLIT_DEPLOYMENT_URL}`;
   } else {
     appUrl = "http://localhost:5000";
   }
@@ -112,10 +110,10 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
   const confirmUrl = `${appUrl}/api/auth/confirm-email?token=${token}`;
 
   const emailHtml = `
-    <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #f8faf8;">
-      <div style="background: white; border-radius: 16px; padding: 32px 24px; border: 1px solid #e8ede8;">
+    <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #F8F9FB;">
+      <div style="background: white; border-radius: 16px; padding: 32px 24px; border: 1px solid #E2E6ED;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <div style="width: 56px; height: 56px; background: #059669; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;">
+          <div style="width: 56px; height: 56px; background: #1E3A5F; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;">
             <span style="color: white; font-size: 24px; font-weight: bold;">H</span>
           </div>
           <h1 style="margin: 16px 0 4px; font-size: 22px; color: #1a1a1a;">Welcome to Hisaabit</h1>
@@ -125,7 +123,7 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
           Please click the button below to verify your email address and activate your account.
         </p>
         <div style="text-align: center; margin: 28px 0;">
-          <a href="${confirmUrl}" style="background: #059669; color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; display: inline-block;">
+          <a href="${confirmUrl}" style="background: #1E3A5F; color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; display: inline-block;">
             Confirm Email
           </a>
         </div>
