@@ -16,7 +16,8 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import type { lightColors } from '@/constants/colors';
 
 const STORAGE_KEY = 'notification_prefs';
 
@@ -25,6 +26,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -93,6 +96,8 @@ const MINUTES = [0, 15, 30, 45];
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -165,7 +170,7 @@ export default function NotificationsScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} testID="notifications-close-button">
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={{ width: 28 }} />
@@ -184,8 +189,8 @@ export default function NotificationsScreen() {
           <View style={styles.card}>
             <View style={styles.row}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: Colors.primary + '18' }]}>
-                  <Ionicons name="warning-outline" size={20} color={Colors.primary} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.primary + '18' }]}>
+                  <Ionicons name="warning-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.rowTextContainer}>
                   <Text style={styles.rowTitle}>Budget Alerts</Text>
@@ -195,8 +200,8 @@ export default function NotificationsScreen() {
               <Switch
                 value={prefs.budgetAlerts}
                 onValueChange={() => handleToggle('budgetAlerts')}
-                trackColor={{ false: Colors.border, true: Colors.primary + '60' }}
-                thumbColor={prefs.budgetAlerts ? Colors.primary : '#f4f3f4'}
+                trackColor={{ false: colors.border, true: colors.primary + '60' }}
+                thumbColor={prefs.budgetAlerts ? colors.primary : '#f4f3f4'}
                 testID="toggle-budgetAlerts"
               />
             </View>
@@ -216,8 +221,8 @@ export default function NotificationsScreen() {
               <Switch
                 value={prefs.dailyReminder}
                 onValueChange={() => handleToggle('dailyReminder')}
-                trackColor={{ false: Colors.border, true: Colors.primary + '60' }}
-                thumbColor={prefs.dailyReminder ? Colors.primary : '#f4f3f4'}
+                trackColor={{ false: colors.border, true: colors.primary + '60' }}
+                thumbColor={prefs.dailyReminder ? colors.primary : '#f4f3f4'}
                 testID="toggle-dailyReminder"
               />
             </View>
@@ -243,7 +248,7 @@ export default function NotificationsScreen() {
                   </View>
                   <View style={styles.timeDisplay}>
                     <Text style={styles.timeText}>{formatTime(prefs.reminderHour, prefs.reminderMinute)}</Text>
-                    <Ionicons name={showTimePicker ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
+                    <Ionicons name={showTimePicker ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
                   </View>
                 </Pressable>
               </>
@@ -264,8 +269,8 @@ export default function NotificationsScreen() {
               <Switch
                 value={prefs.monthlySummary}
                 onValueChange={() => handleToggle('monthlySummary')}
-                trackColor={{ false: Colors.border, true: Colors.primary + '60' }}
-                thumbColor={prefs.monthlySummary ? Colors.primary : '#f4f3f4'}
+                trackColor={{ false: colors.border, true: colors.primary + '60' }}
+                thumbColor={prefs.monthlySummary ? colors.primary : '#f4f3f4'}
                 testID="toggle-monthlySummary"
               />
             </View>
@@ -294,7 +299,7 @@ export default function NotificationsScreen() {
                           {formatTime(hour, minute)}
                         </Text>
                         {isSelected ? (
-                          <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                          <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                         ) : null}
                       </Pressable>
                     );
@@ -308,7 +313,7 @@ export default function NotificationsScreen() {
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <View style={styles.card}>
             <View style={styles.infoRow}>
-              <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
+              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
                 {Platform.OS === 'web'
                   ? 'Push notifications work on your mobile device via Expo Go. Toggle preferences here and they will take effect on your phone.'
@@ -322,10 +327,10 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -334,12 +339,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -351,14 +356,14 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 10,
   },
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   row: {
@@ -395,24 +400,24 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   rowDescription: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     marginLeft: 64,
   },
   timeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -420,7 +425,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   timePickerScroll: {
     maxHeight: 300,
@@ -436,16 +441,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   timeOptionSelected: {
-    backgroundColor: Colors.primary + '08',
+    backgroundColor: colors.primary + '08',
   },
   timeOptionText: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   timeOptionTextSelected: {
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   infoRow: {
     flexDirection: 'row',
@@ -458,7 +463,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
 });

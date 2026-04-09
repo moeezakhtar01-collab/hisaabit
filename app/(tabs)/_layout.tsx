@@ -2,12 +2,12 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, useColorScheme, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React from "react";
 
-import Colors from "@/constants/colors";
+import { useColors } from "@/lib/theme-context";
 
 function NativeTabLayout() {
   return (
@@ -33,8 +33,8 @@ function NativeTabLayout() {
 }
 
 function ClassicTabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const colors = useColors();
+  const isDark = colors.background === '#0A1F14';
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
   const safeAreaInsets = useSafeAreaInsets();
@@ -43,13 +43,13 @@ function ClassicTabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: isDark ? "#888" : Colors.light.tabIconDefault,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : isDark ? "#000" : "#fff",
+          backgroundColor: isIOS ? "transparent" : colors.card,
           borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: isDark ? "#333" : "#ccc",
+          borderTopColor: colors.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
           ...(!isWeb ? { paddingBottom: safeAreaInsets.bottom } : {}),
@@ -62,7 +62,7 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#000" : "#fff" }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
           ) : null,
         tabBarLabelStyle: {
           fontFamily: "Inter_500Medium",

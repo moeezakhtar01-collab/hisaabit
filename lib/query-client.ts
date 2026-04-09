@@ -1,4 +1,3 @@
-import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 /**
@@ -7,16 +6,13 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
  */
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
-
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
-
-  let url = new URL(`https://${host}`);
-
+  const hasProtocol = host.startsWith("http://") || host.startsWith("https://");
+  let url = new URL(hasProtocol ? host : `https://${host}`);
   return url.href;
 }
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -34,7 +30,10 @@ export async function apiRequest(
 
   const res = await fetch(url.toString(), {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      "ngrok-skip-browser-warning": "true",
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -54,6 +53,7 @@ export const getQueryFn: <T>(options: {
 
     const res = await fetch(url.toString(), {
       credentials: "include",
+      headers: { "ngrok-skip-browser-warning": "true" },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

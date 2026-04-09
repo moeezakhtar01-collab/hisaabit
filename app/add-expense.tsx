@@ -16,7 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import { type ThemeColors } from '@/constants/colors';
 import CategoryPill from '@/components/CategoryPill';
 import { addExpense, updateExpense, CATEGORIES, formatPKR } from '@/lib/storage';
 
@@ -52,6 +53,8 @@ function generateDateOptions(): Date[] {
 }
 
 export default function AddExpenseScreen() {
+  const colors = useColors();
+  const styles = createStyles(colors);
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     editId?: string;
@@ -59,6 +62,7 @@ export default function AddExpenseScreen() {
     editCategory?: string;
     editNote?: string;
     editDate?: string;
+    date?: string;
   }>();
 
   const isEditing = !!params.editId;
@@ -66,9 +70,14 @@ export default function AddExpenseScreen() {
   const [amount, setAmount] = useState(params.editAmount || '');
   const [selectedCategory, setSelectedCategory] = useState(params.editCategory || '');
   const [note, setNote] = useState(params.editNote || '');
-  const [selectedDate, setSelectedDate] = useState<Date>(
-    params.editDate ? new Date(params.editDate) : new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (params.editDate) return new Date(params.editDate);
+    if (params.date) {
+      const [y, m, d] = params.date.split('-').map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
+    return new Date();
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -103,22 +112,21 @@ export default function AddExpenseScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       const expenseDate = new Date(selectedDate);
-      const now = new Date();
-      expenseDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+      const dateStr = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}-${String(expenseDate.getDate()).padStart(2, '0')}`;
 
       if (isEditing) {
         await updateExpense(params.editId!, {
           amount: parseInt(amount, 10),
           category: selectedCategory,
           note: note.trim(),
-          date: expenseDate.toISOString(),
+          date: dateStr,
         });
       } else {
         await addExpense({
           amount: parseInt(amount, 10),
           category: selectedCategory,
           note: note.trim(),
-          date: expenseDate.toISOString(),
+          date: dateStr,
         });
       }
       router.back();
@@ -139,7 +147,7 @@ export default function AddExpenseScreen() {
     >
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{isEditing ? 'Edit Expense' : 'Add Expense'}</Text>
         <View style={{ width: 28 }} />
@@ -159,7 +167,7 @@ export default function AddExpenseScreen() {
             onChangeText={handleAmountChange}
             keyboardType="numeric"
             placeholder="0"
-            placeholderTextColor={Colors.border}
+            placeholderTextColor={colors.border}
             autoFocus
             maxLength={8}
           />
@@ -181,11 +189,11 @@ export default function AddExpenseScreen() {
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Ionicons name="calendar-outline" size={18} color={isToday ? Colors.textSecondary : Colors.primary} />
-            <Text style={[styles.dateSelectorText, !isToday && { color: Colors.primary }]}>
+            <Ionicons name="calendar-outline" size={18} color={isToday ? colors.textSecondary : colors.primary} />
+            <Text style={[styles.dateSelectorText, !isToday && { color: colors.primary }]}>
               {formatDateLabel(selectedDate)}
             </Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
           </Pressable>
         </Animated.View>
 
@@ -238,7 +246,7 @@ export default function AddExpenseScreen() {
             value={note}
             onChangeText={setNote}
             placeholder="e.g. Weekly groceries from Imtiaz"
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             multiline
             maxLength={100}
           />
@@ -273,7 +281,7 @@ export default function AddExpenseScreen() {
             <View style={styles.datePickerHeader}>
               <Text style={styles.datePickerTitle}>Select Date</Text>
               <Pressable onPress={() => setShowDatePicker(false)} hitSlop={12}>
-                <Ionicons name="close" size={24} color={Colors.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
@@ -294,7 +302,7 @@ export default function AddExpenseScreen() {
                       {label}
                     </Text>
                     {isSelected && (
-                      <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                     )}
                   </Pressable>
                 );
@@ -307,10 +315,10 @@ export default function AddExpenseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -319,12 +327,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -341,13 +349,13 @@ const styles = StyleSheet.create({
   currencyLabel: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     letterSpacing: 2,
   },
   amountInput: {
     fontSize: 48,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
     minWidth: 120,
     paddingHorizontal: 20,
@@ -355,7 +363,7 @@ const styles = StyleSheet.create({
   amountFormatted: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.primary,
+    color: colors.primary,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -365,19 +373,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   dateSelectorText: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   sectionLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 10,
   },
   quickAmountRow: {
@@ -390,20 +398,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   quickAmountSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '12',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '12',
   },
   quickAmountText: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   quickAmountTextSelected: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -411,14 +419,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   noteInput: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     minHeight: 56,
     textAlignVertical: 'top',
   },
@@ -427,7 +435,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 18,
     marginTop: 8,
@@ -443,7 +451,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   datePickerContainer: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '60%',
@@ -456,12 +464,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   datePickerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   dateList: {
     paddingHorizontal: 16,
@@ -477,15 +485,15 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   dateOptionSelected: {
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
   },
   dateOptionText: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   dateOptionTextSelected: {
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const baseUrl = getApiUrl();
       const res = await fetch(new URL('/api/auth/me', baseUrl).toString(), {
         credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
       if (res.ok) {
         const data = await res.json();
@@ -54,11 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/login', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Cannot reach server. Check your connection.');
+    }
     if (!res.ok) throw new Error(data.error || 'Login failed');
     setUser(data.user);
   };
@@ -67,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/register', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       credentials: 'include',
       body: JSON.stringify({ name, email, password }),
     });
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch(new URL('/api/auth/logout', baseUrl).toString(), {
         method: 'POST',
         credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
     } catch {}
     setUser(null);
@@ -91,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/forgot-password', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ email }),
     });
     const data = await res.json();
@@ -103,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/resend-confirmation', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ email }),
     });
     const data = await res.json();
@@ -115,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/profile', baseUrl).toString(), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       credentials: 'include',
       body: JSON.stringify({ name }),
     });
@@ -128,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/password', baseUrl).toString(), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       credentials: 'include',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
@@ -142,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const baseUrl = getApiUrl();
       const res = await fetch(new URL('/api/auth/me', baseUrl).toString(), {
         credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
       if (res.ok) {
         const data = await res.json();
@@ -154,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/account', baseUrl).toString(), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       credentials: 'include',
       body: JSON.stringify({ password }),
     });

@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import { type ThemeColors } from '@/constants/colors';
 import { getCategoryLabel, getCategoryIcon, formatPKR } from '@/lib/storage';
 
 interface BudgetBarProps {
@@ -12,10 +13,12 @@ interface BudgetBarProps {
 }
 
 export default function BudgetBar({ category, spent, limit, index }: BudgetBarProps) {
+  const colors = useColors();
+  const styles = createStyles(colors);
   const percentage = Math.min((spent / limit) * 100, 100);
   const isOverBudget = spent > limit;
-  const color = Colors.categories[category as keyof typeof Colors.categories] || Colors.categories.general;
-  const barColor = isOverBudget ? Colors.danger : color;
+  const color = colors.categories[category as keyof typeof colors.categories] || colors.categories.general;
+  const barColor = isOverBudget ? colors.danger : color;
 
   return (
     <Animated.View
@@ -33,7 +36,7 @@ export default function BudgetBar({ category, spent, limit, index }: BudgetBarPr
           <Text style={[styles.amountText, isOverBudget && styles.overBudgetText]}>
             {formatPKR(spent)} / {formatPKR(limit)}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
+          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
         </View>
       </View>
       <View style={styles.barBackground}>
@@ -56,15 +59,15 @@ export default function BudgetBar({ category, spent, limit, index }: BudgetBarPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     marginHorizontal: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -87,7 +90,7 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   rightRow: {
     flexDirection: 'row',
@@ -97,16 +100,16 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   overBudgetText: {
-    color: Colors.danger,
+    color: colors.danger,
     fontFamily: 'Inter_600SemiBold',
   },
   barBackground: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   barFill: {
@@ -116,7 +119,7 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 11,
     fontFamily: 'Inter_500Medium',
-    color: Colors.danger,
+    color: colors.danger,
     marginTop: 6,
   },
 });

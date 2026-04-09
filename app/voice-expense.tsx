@@ -27,7 +27,8 @@ import Animated, {
   cancelAnimation,
   Easing,
 } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
@@ -79,6 +80,8 @@ function generateDateOptions(): string[] {
 
 export default function VoiceExpenseScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { user, refreshUser } = useAuth();
   const [state, setState] = useState<VoiceState>('idle');
   const [result, setResult] = useState<VoiceResult | null>(null);
@@ -273,15 +276,11 @@ export default function VoiceExpenseScreen() {
     setSaving(true);
     try {
       for (const expense of validExpenses) {
-        const expenseDate = new Date(expense.date + 'T12:00:00');
-        const now = new Date();
-        expenseDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-
         await addExpense({
           amount: expense.amount,
           category: expense.category,
           note: expense.note,
-          date: expenseDate.toISOString(),
+          date: expense.date,
         });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -376,14 +375,14 @@ export default function VoiceExpenseScreen() {
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="close" size={28} color={Colors.text} />
+            <Ionicons name="close" size={28} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Voice Expense</Text>
           <View style={{ width: 28 }} />
         </View>
         <View style={styles.permissionContainer}>
           <View style={styles.permissionIconBg}>
-            <Ionicons name="mic-off" size={40} color={Colors.textSecondary} />
+            <Ionicons name="mic-off" size={40} color={colors.textSecondary} />
           </View>
           <Text style={styles.permissionTitle}>Microphone Access Needed</Text>
           <Text style={styles.permissionDesc}>
@@ -405,7 +404,7 @@ export default function VoiceExpenseScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Voice Expense</Text>
         <View style={{ width: 28 }} />
@@ -418,7 +417,7 @@ export default function VoiceExpenseScreen() {
               {isLimitReached ? (
                 <>
                   <View style={styles.limitReachedIcon}>
-                    <Ionicons name="lock-closed" size={36} color={Colors.textSecondary} />
+                    <Ionicons name="lock-closed" size={36} color={colors.textSecondary} />
                   </View>
                   <Text style={styles.instructionTitle}>Voice Limit Reached</Text>
                   <Text style={styles.instructionText}>
@@ -446,7 +445,7 @@ export default function VoiceExpenseScreen() {
 
                   {currentPlan === 'free' && (
                     <View style={styles.usageHint}>
-                      <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+                      <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
                       <Text style={styles.usageHintText}>
                         {voiceUsageCount} of {FREE_VOICE_LIMIT} free entries used
                       </Text>
@@ -464,7 +463,7 @@ export default function VoiceExpenseScreen() {
               )}
 
               <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
-                <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
                 <Text style={styles.manualLinkText}>Add manually instead</Text>
               </Pressable>
             </Animated.View>
@@ -492,7 +491,7 @@ export default function VoiceExpenseScreen() {
 
           {state === 'processing' && (
             <Animated.View entering={FadeIn.duration(300)} style={styles.processingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.processingText}>Understanding your expenses...</Text>
               <Text style={styles.processingHint}>AI is extracting the details</Text>
             </Animated.View>
@@ -508,13 +507,13 @@ export default function VoiceExpenseScreen() {
         >
           <Animated.View entering={FadeInDown.duration(400)} style={styles.resultContainer}>
             <View style={styles.transcriptCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textSecondary} />
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.textSecondary} />
               <Text style={styles.transcriptText}>"{result.transcript}"</Text>
             </View>
 
             {result.expenses.length > 1 && (
               <View style={styles.summaryBadge}>
-                <Ionicons name="layers-outline" size={16} color={Colors.primary} />
+                <Ionicons name="layers-outline" size={16} color={colors.primary} />
                 <Text style={styles.summaryText}>
                   {result.expenses.length} expenses found — Total {formatPKR(totalAmount)}
                 </Text>
@@ -534,7 +533,7 @@ export default function VoiceExpenseScreen() {
                   style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
                 >
                   <View style={styles.extractedIconBg}>
-                    <Ionicons name="cash-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="cash-outline" size={18} color={colors.primary} />
                   </View>
                   <View style={styles.extractedDetail}>
                     <Text style={styles.extractedLabel}>Amount</Text>
@@ -555,7 +554,7 @@ export default function VoiceExpenseScreen() {
                     )}
                   </View>
                   {!(editingField?.index === index && editingField?.field === 'amount') && (
-                    <Ionicons name="pencil" size={14} color={Colors.textSecondary} />
+                    <Ionicons name="pencil" size={14} color={colors.textSecondary} />
                   )}
                 </Pressable>
 
@@ -569,14 +568,14 @@ export default function VoiceExpenseScreen() {
                     <Ionicons
                       name={(CATEGORIES.find(c => c.key === expense.category)?.icon || 'ellipsis-horizontal-circle') as any}
                       size={18}
-                      color={Colors.primary}
+                      color={colors.primary}
                     />
                   </View>
                   <View style={styles.extractedDetail}>
                     <Text style={styles.extractedLabel}>Category</Text>
                     <Text style={styles.extractedValue}>{getCategoryLabel(expense.category)}</Text>
                   </View>
-                  <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                 </Pressable>
 
                 <View style={styles.extractedDivider} />
@@ -586,18 +585,18 @@ export default function VoiceExpenseScreen() {
                   style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
                 >
                   <View style={styles.extractedIconBg}>
-                    <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="calendar-outline" size={18} color={colors.primary} />
                   </View>
                   <View style={styles.extractedDetail}>
                     <Text style={styles.extractedLabel}>Date</Text>
                     <Text style={[
                       styles.extractedValue,
-                      formatDateLabel(expense.date) !== 'Today' && { color: Colors.primary },
+                      formatDateLabel(expense.date) !== 'Today' && { color: colors.primary },
                     ]}>
                       {formatDateLabel(expense.date)}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                 </Pressable>
 
                 <View style={styles.extractedDivider} />
@@ -607,7 +606,7 @@ export default function VoiceExpenseScreen() {
                   style={({ pressed }) => [styles.extractedRow, styles.editableRow, pressed && styles.editableRowPressed]}
                 >
                   <View style={styles.extractedIconBg}>
-                    <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="document-text-outline" size={18} color={colors.primary} />
                   </View>
                   <View style={styles.extractedDetail}>
                     <Text style={styles.extractedLabel}>Note</Text>
@@ -621,7 +620,7 @@ export default function VoiceExpenseScreen() {
                         onSubmitEditing={confirmEditField}
                         maxLength={100}
                         placeholder="Add a note..."
-                        placeholderTextColor={Colors.textSecondary}
+                        placeholderTextColor={colors.textSecondary}
                         selectTextOnFocus
                       />
                     ) : (
@@ -631,7 +630,7 @@ export default function VoiceExpenseScreen() {
                     )}
                   </View>
                   {!(editingField?.index === index && editingField?.field === 'note') && (
-                    <Ionicons name="pencil" size={14} color={Colors.textSecondary} />
+                    <Ionicons name="pencil" size={14} color={colors.textSecondary} />
                   )}
                 </Pressable>
               </View>
@@ -659,7 +658,7 @@ export default function VoiceExpenseScreen() {
 
             <View style={styles.resultActions}>
               <Pressable onPress={handleRetry} style={styles.retryButton} testID="retry-recording">
-                <Ionicons name="refresh" size={18} color={Colors.primary} />
+                <Ionicons name="refresh" size={18} color={colors.primary} />
                 <Text style={styles.retryText}>Try Again</Text>
               </Pressable>
             </View>
@@ -691,12 +690,12 @@ export default function VoiceExpenseScreen() {
                     ]}
                   >
                     <View style={[styles.modalCategoryIcon, isSelected && styles.modalCategoryIconSelected]}>
-                      <Ionicons name={cat.icon as any} size={20} color={isSelected ? '#fff' : Colors.primary} />
+                      <Ionicons name={cat.icon as any} size={20} color={isSelected ? '#fff' : colors.primary} />
                     </View>
                     <Text style={[styles.modalCategoryLabel, isSelected && styles.modalCategoryLabelSelected]}>
                       {cat.label}
                     </Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
                   </Pressable>
                 );
               })}
@@ -731,7 +730,7 @@ export default function VoiceExpenseScreen() {
                     <Text style={[styles.dateOptionText, isSelected && styles.dateOptionTextSelected]}>
                       {formatDateLabel(dateStr)}
                     </Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
                   </Pressable>
                 );
               })}
@@ -743,10 +742,10 @@ export default function VoiceExpenseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -755,12 +754,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   body: {
     flex: 1,
@@ -775,13 +774,13 @@ const styles = StyleSheet.create({
   instructionTitle: {
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
   instructionText: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -789,11 +788,11 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
-    shadowColor: Colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 14,
@@ -809,7 +808,7 @@ const styles = StyleSheet.create({
   manualLinkText: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   recordingContainer: {
     alignItems: 'center',
@@ -818,12 +817,12 @@ const styles = StyleSheet.create({
   recordingLabel: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   durationText: {
     fontSize: 40,
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   pulseContainer: {
     width: 120,
@@ -836,13 +835,13 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.danger,
+    backgroundColor: colors.danger,
   },
   stopButton: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.danger,
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -856,7 +855,7 @@ const styles = StyleSheet.create({
   recordingHint: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 8,
   },
   processingContainer: {
@@ -866,12 +865,12 @@ const styles = StyleSheet.create({
   processingText: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   processingHint: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   resultScroll: {
     flex: 1,
@@ -886,17 +885,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   transcriptText: {
     flex: 1,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
     lineHeight: 20,
   },
@@ -904,7 +903,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -912,13 +911,13 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   extractedCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   expenseNumberBadge: {
@@ -928,7 +927,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary + '18',
+    backgroundColor: colors.primary + '18',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -936,7 +935,7 @@ const styles = StyleSheet.create({
   expenseNumberText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   extractedRow: {
     flexDirection: 'row',
@@ -949,13 +948,13 @@ const styles = StyleSheet.create({
     borderRadius: 0,
   },
   editableRowPressed: {
-    backgroundColor: Colors.border + '30',
+    backgroundColor: colors.border + '30',
   },
   extractedIconBg: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -966,29 +965,29 @@ const styles = StyleSheet.create({
   extractedLabel: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   extractedValue: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   inlineInput: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     borderBottomWidth: 1.5,
-    borderBottomColor: Colors.primary,
+    borderBottomColor: colors.primary,
     paddingVertical: 2,
     minWidth: 80,
   },
   placeholderNote: {
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   extractedDivider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     marginHorizontal: 16,
   },
   saveButton: {
@@ -996,7 +995,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 18,
   },
@@ -1018,7 +1017,7 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   permissionContainer: {
     flex: 1,
@@ -1031,7 +1030,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.border + '40',
+    backgroundColor: colors.border + '40',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -1039,13 +1038,13 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
   permissionDesc: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -1053,7 +1052,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     paddingHorizontal: 24,
     paddingVertical: 16,
@@ -1070,7 +1069,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 12,
@@ -1080,14 +1079,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     alignSelf: 'center',
     marginBottom: 12,
   },
   modalTitle: {
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     paddingHorizontal: 20,
     marginBottom: 12,
   },
@@ -1104,28 +1103,28 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   modalCategoryRowSelected: {
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
   },
   modalCategoryIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCategoryIconSelected: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   modalCategoryLabel: {
     flex: 1,
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   modalCategoryLabelSelected: {
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   dateOption: {
     flexDirection: 'row',
@@ -1137,22 +1136,22 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   dateOptionSelected: {
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
   },
   dateOptionText: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   dateOptionTextSelected: {
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   limitReachedIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.border + '40',
+    backgroundColor: colors.border + '40',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -1176,7 +1175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.border + '30',
+    backgroundColor: colors.border + '30',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1184,6 +1183,6 @@ const styles = StyleSheet.create({
   usageHintText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

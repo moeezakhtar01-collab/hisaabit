@@ -16,13 +16,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
+import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { fetch } from 'expo/fetch';
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { deleteAccount } = useAuth();
   const [exporting, setExporting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -98,7 +101,7 @@ export default function PrivacyScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} testID="privacy-close-button">
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Privacy & Data</Text>
         <View style={{ width: 28 }} />
@@ -126,15 +129,15 @@ export default function PrivacyScreen() {
               testID="export-data-button"
             >
               <View style={styles.rowLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: Colors.success + '18' }]}>
-                  <Ionicons name="download-outline" size={20} color={Colors.success} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.success + '18' }]}>
+                  <Ionicons name="download-outline" size={20} color={colors.success} />
                 </View>
                 <Text style={styles.rowText}>Export My Data</Text>
               </View>
               {exporting ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               )}
             </Pressable>
 
@@ -149,12 +152,12 @@ export default function PrivacyScreen() {
               testID="delete-account-button"
             >
               <View style={styles.rowLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: Colors.danger + '18' }]}>
-                  <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.danger + '18' }]}>
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
                 </View>
-                <Text style={[styles.rowText, { color: Colors.danger }]}>Delete Account</Text>
+                <Text style={[styles.rowText, { color: colors.danger }]}>Delete Account</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </Pressable>
           </View>
         </Animated.View>
@@ -163,14 +166,14 @@ export default function PrivacyScreen() {
           <Text style={styles.sectionLabel}>Information</Text>
           <View style={styles.card}>
             <View style={styles.infoRow}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={Colors.primary} />
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
                 Your data is stored securely on our servers. You can export or delete your data at any time.
               </Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.infoRow}>
-              <Ionicons name="lock-closed-outline" size={20} color={Colors.primary} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
                 Your expenses, budgets, and account information are only accessible to you.
               </Text>
@@ -199,7 +202,7 @@ export default function PrivacyScreen() {
               value={deletePassword}
               onChangeText={setDeletePassword}
               placeholder="Password"
-              placeholderTextColor={Colors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               secureTextEntry
               autoFocus
               editable={!deleting}
@@ -243,10 +246,10 @@ export default function PrivacyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -255,12 +258,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -272,14 +275,14 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 10,
   },
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   row: {
@@ -304,11 +307,11 @@ const styles = StyleSheet.create({
   rowText: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     marginLeft: 64,
   },
   infoRow: {
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   modalOverlay: {
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   modalContent: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -342,26 +345,26 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   modalDescription: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
   },
   modalInput: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 20,
   },
   modalButtons: {
@@ -376,17 +379,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCancelButton: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   modalCancelText: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   modalDeleteButton: {
-    backgroundColor: Colors.danger,
+    backgroundColor: colors.danger,
   },
   modalDeleteText: {
     fontSize: 15,

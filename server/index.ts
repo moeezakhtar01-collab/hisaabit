@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const app = express();
+app.set("trust proxy", 1);
 const log = console.log;
 
 declare module "http" {
@@ -241,7 +242,6 @@ function setupErrorHandler(app: express.Application) {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       log(`express server serving on port ${port}`);

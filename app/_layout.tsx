@@ -15,7 +15,7 @@ import {
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import Colors from "@/constants/colors";
+import { ThemeProvider, useColors } from "@/lib/theme-context";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,6 +23,7 @@ function AuthGate() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const colors = useColors();
 
   useEffect(() => {
     if (isLoading) return;
@@ -38,8 +39,8 @@ function AuthGate() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.background }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -114,6 +115,14 @@ function AuthGate() {
           animation: "slide_from_bottom",
         }}
       />
+      <Stack.Screen
+        name="weekly-report"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "fade",
+        }}
+      />
     </Stack>
   );
 }
@@ -137,13 +146,15 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <GestureHandlerRootView>
-            <KeyboardProvider>
-              <AuthGate />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <GestureHandlerRootView>
+              <KeyboardProvider>
+                <AuthGate />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

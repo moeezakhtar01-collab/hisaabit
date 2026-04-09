@@ -1,7 +1,8 @@
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import { type ThemeColors } from '@/constants/colors';
 
 interface CategoryPillProps {
   label: string;
@@ -12,7 +13,9 @@ interface CategoryPillProps {
 }
 
 export default function CategoryPill({ label, icon, categoryKey, selected, onPress }: CategoryPillProps) {
-  const color = Colors.categories[categoryKey as keyof typeof Colors.categories] || Colors.categories.general;
+  const colors = useColors();
+  const styles = createStyles(colors);
+  const color = colors.categories[categoryKey as keyof typeof colors.categories] || colors.categories.general;
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -31,7 +34,7 @@ export default function CategoryPill({ label, icon, categoryKey, selected, onPre
       <Ionicons
         name={icon as any}
         size={16}
-        color={selected ? color : Colors.textSecondary}
+        color={selected ? color : colors.textSecondary}
       />
       <Text
         style={[
@@ -46,7 +49,7 @@ export default function CategoryPill({ label, icon, categoryKey, selected, onPre
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -55,12 +58,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   label: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

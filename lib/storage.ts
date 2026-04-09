@@ -29,7 +29,8 @@ export interface MonthlyData {
 export async function getExpenses(): Promise<Expense[]> {
   try {
     const res = await apiRequest('GET', '/api/expenses');
-    return await res.json();
+    const data: Expense[] = await res.json();
+    return data.map(e => ({ ...e, category: normalizeCategoryKey(e.category) }));
   } catch {
     return [];
   }
@@ -100,9 +101,15 @@ export function getMonthKey(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function parseLocalDate(dateString: string): Date {
+  const dateOnly = dateString.includes('T') ? dateString.split('T')[0] : dateString;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export function getExpensesForMonth(expenses: Expense[], monthKey: string): Expense[] {
   return expenses.filter(e => {
-    const expDate = new Date(e.date);
+    const expDate = parseLocalDate(e.date);
     const expMonthKey = getMonthKey(expDate);
     return expMonthKey === monthKey;
   });
@@ -120,13 +127,11 @@ export function getTotalExpenses(expenses: Expense[]): number {
 
 export const CATEGORIES = [
   { key: 'kiryana', label: 'Grocery', icon: 'cart' as const },
-  { key: 'sabziMandi', label: 'Sabzi Mandi', icon: 'leaf' as const },
   { key: 'bijliBill', label: 'Bijli Bill', icon: 'flash' as const },
   { key: 'gasBill', label: 'Gas Bill', icon: 'flame' as const },
   { key: 'paniBill', label: 'Pani Bill', icon: 'water' as const },
   { key: 'schoolFees', label: 'School Fees', icon: 'school' as const },
   { key: 'transport', label: 'Transport', icon: 'car' as const },
-  { key: 'mobileRecharge', label: 'Mobile Recharge', icon: 'phone-portrait' as const },
   { key: 'medical', label: 'Medical', icon: 'medkit' as const },
   { key: 'chaiNashta', label: 'Food', icon: 'cafe' as const },
   { key: 'kapray', label: 'Shopping', icon: 'shirt' as const },
@@ -134,9 +139,15 @@ export const CATEGORIES = [
   { key: 'general', label: 'General', icon: 'ellipsis-horizontal-circle' as const },
 ] as const;
 
+const VALID_KEYS = new Set(CATEGORIES.map(c => c.key));
+
+export function normalizeCategoryKey(key: string): string {
+  return VALID_KEYS.has(key as any) ? key : 'general';
+}
+
 export function getCategoryLabel(key: string): string {
   const cat = CATEGORIES.find(c => c.key === key);
-  return cat ? cat.label : key;
+  return cat ? cat.label : 'General';
 }
 
 export function getCategoryIcon(key: string): string {
@@ -149,7 +160,7 @@ export function formatPKR(amount: number): string {
 }
 
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -208,12 +219,12 @@ export function getWeekDateRange(): { start: Date; end: Date; label: string } {
 export function getExpensesForWeek(expenses: Expense[]): Expense[] {
   const { start, end } = getWeekDateRange();
   return expenses.filter(e => {
-    const d = new Date(e.date);
+    const d = parseLocalDate(e.date);
     return d >= start && d <= end;
   });
 }
 
 export function getExpensesForToday(expenses: Expense[]): Expense[] {
   const today = new Date();
-  return expenses.filter(e => new Date(e.date).toDateString() === today.toDateString());
+  return expenses.filter(e => parseLocalDate(e.date).toDateString() === today.toDateString());
 }

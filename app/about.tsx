@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import type { lightColors } from '@/constants/colors';
 
 const FEATURES = [
   { icon: 'wallet-outline' as const, label: 'Track daily expenses in PKR' },
@@ -23,6 +24,8 @@ const FEATURES = [
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
 
@@ -36,7 +39,7 @@ export default function AboutScreen() {
           }}
           hitSlop={12}
         >
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>About</Text>
         <View style={{ width: 28 }} />
@@ -64,7 +67,7 @@ export default function AboutScreen() {
           {FEATURES.map((feature, index) => (
             <View key={index} style={styles.featureRow}>
               <View style={styles.featureIconContainer}>
-                <Ionicons name={feature.icon} size={22} color={Colors.primary} />
+                <Ionicons name={feature.icon} size={22} color={colors.primary} />
               </View>
               <Text style={styles.featureLabel}>{feature.label}</Text>
             </View>
@@ -81,10 +84,10 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -93,12 +96,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -116,7 +119,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -129,32 +132,32 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 28,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   tagline: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   version: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     padding: 20,
     gap: 14,
   },
   sectionTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   featureRow: {
@@ -166,24 +169,24 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
   featureLabel: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
     flex: 1,
   },
   builtWithText: {
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   builtWithSubtext: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

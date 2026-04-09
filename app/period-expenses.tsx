@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import type { lightColors } from '@/constants/colors';
 import ExpenseCard from '@/components/ExpenseCard';
 import {
   Expense,
@@ -28,6 +29,8 @@ import {
 
 export default function PeriodExpensesScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { period } = useLocalSearchParams<{ period: string }>();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,7 +101,7 @@ export default function PeriodExpensesScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{title}</Text>
@@ -108,11 +111,11 @@ export default function PeriodExpensesScreen() {
       </View>
 
       <View style={styles.totalCard}>
-        <View style={[styles.totalIconBg, { backgroundColor: isDaily ? Colors.accent + '20' : Colors.primary + '15' }]}>
+        <View style={[styles.totalIconBg, { backgroundColor: isDaily ? colors.accent + '20' : colors.primary + '15' }]}>
           <Ionicons
             name={isDaily ? 'today' : 'calendar'}
             size={20}
-            color={isDaily ? Colors.accent : Colors.primary}
+            color={isDaily ? colors.accent : colors.primary}
           />
         </View>
         <View>
@@ -143,11 +146,11 @@ export default function PeriodExpensesScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={40} color={Colors.textSecondary} />
+            <Ionicons name="receipt-outline" size={40} color={colors.textSecondary} />
             <Text style={styles.emptyText}>
               {isDaily ? 'No expenses today' : 'No expenses this week'}
             </Text>
@@ -161,10 +164,10 @@ export default function PeriodExpensesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -172,8 +175,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.card,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
   },
   headerCenter: {
     flex: 1,
@@ -182,25 +185,25 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   headerSubtitle: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   totalCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 12,
   },
   totalIconBg: {
@@ -213,16 +216,16 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   totalAmount: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   totalCountBadge: {
     marginLeft: 'auto',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -230,32 +233,32 @@ const styles = StyleSheet.create({
   totalCountText: {
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   listContent: {
     paddingHorizontal: 0,
     paddingTop: 8,
   },
   emptyContainer: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 32,
     marginHorizontal: 16,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     gap: 8,
   },
   emptyText: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   emptySubText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

@@ -14,11 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
+import type { lightColors } from '@/constants/colors';
 
 export default function ForgotPasswordScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { forgotPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,13 +65,13 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 
         {sent ? (
           <View style={styles.sentContainer}>
             <View style={styles.sentIconBg}>
-              <Ionicons name="mail-open" size={40} color={Colors.primary} />
+              <Ionicons name="mail-open" size={40} color={colors.primary} />
             </View>
             <Text style={styles.sentTitle}>Check Your Email</Text>
             <Text style={styles.sentDesc}>
@@ -93,7 +96,7 @@ export default function ForgotPasswordScreen() {
 
             {error ? (
               <View style={styles.errorBox}>
-                <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -101,13 +104,13 @@ export default function ForgotPasswordScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="your@email.com"
-                  placeholderTextColor={Colors.textSecondary + '80'}
+                  placeholderTextColor={colors.textSecondary + '80'}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -146,10 +149,10 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -169,12 +172,12 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   formDesc: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 22,
     marginBottom: 4,
   },
@@ -182,17 +185,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.danger + '10',
+    backgroundColor: colors.danger + '10',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: Colors.danger + '25',
+    borderColor: colors.danger + '25',
   },
   errorText: {
     flex: 1,
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.danger,
+    color: colors.danger,
   },
   inputGroup: {
     gap: 6,
@@ -200,16 +203,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     marginLeft: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 14,
     height: 52,
   },
@@ -220,11 +223,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text,
+    color: colors.text,
     height: '100%',
   },
   submitButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     height: 54,
     alignItems: 'center',
@@ -246,12 +249,12 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   switchLink: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   sentContainer: {
     flex: 1,
@@ -264,7 +267,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -272,13 +275,13 @@ const styles = StyleSheet.create({
   sentTitle: {
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
   sentDesc: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 300,

@@ -7,7 +7,6 @@ import * as path from "path";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import {
   createUser,
@@ -16,6 +15,7 @@ import {
   setResetToken,
   resetPassword,
   confirmUserEmail,
+  updateConfirmationToken,
   getExpensesByUser,
   addExpense,
   updateExpenseById,
@@ -44,7 +44,7 @@ declare module "express-session" {
   }
 }
 
-const upload = multer({ dest: "/tmp/uploads/" });
+const upload = multer({ dest: "/tmp/uploads/", limits: { fileSize: 25 * 1024 * 1024 } });
 
 function requireAuth(req: Request, res: Response, next: Function) {
   if (!req.session.userId) {
@@ -53,13 +53,40 @@ function requireAuth(req: Request, res: Response, next: Function) {
   next();
 }
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: ReturnType<typeof createClient> | null = null;
-if (supabaseUrl && supabaseServiceKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceKey);
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function rateLimit(windowMs: number, maxRequests: number) {
+  return (req: Request, res: Response, next: Function) => {
+    const key = (req.ip || req.socket.remoteAddress || "unknown") + req.path;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+
+    if (!entry || now > entry.resetTime) {
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+
+    if (entry.count >= maxRequests) {
+      return res.status(429).json({ error: "Too many requests. Please try again later." });
+    }
+
+    entry.count++;
+    return next();
+  };
+}
+
+const authLimiter = rateLimit(15 * 60 * 1000, 15);
+const voiceLimiter = rateLimit(60 * 60 * 1000, 30);
+
+const VALID_CATEGORY_KEYS = [
+  "kiryana", "bijliBill", "gasBill", "paniBill",
+  "schoolFees", "transport", "medical",
+  "chaiNashta", "kapray", "rent", "general",
+];
 
 async function sendConfirmationEmail(email: string, token: string, requestHost?: string) {
   const resendApiKey = process.env.RESEND_API_KEY;
@@ -125,14 +152,12 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
 }
 
 const CATEGORIES = [
-  { key: "kiryana", label: "Grocery", aliases: ["grocery", "groceries", "kiryana", "ration", "general store", "dukan"] },
-  { key: "sabziMandi", label: "Sabzi Mandi", aliases: ["sabzi", "vegetables", "fruit", "mandi", "sabzi mandi", "phal"] },
+  { key: "kiryana", label: "Grocery", aliases: ["grocery", "groceries", "kiryana", "ration", "general store", "dukan", "sabzi", "vegetables", "fruit", "mandi", "sabzi mandi", "phal"] },
   { key: "bijliBill", label: "Bijli Bill", aliases: ["bijli", "electricity", "light bill", "wapda", "electric"] },
   { key: "gasBill", label: "Gas Bill", aliases: ["gas", "sui gas", "gas bill", "sui northern", "sui southern"] },
   { key: "paniBill", label: "Pani Bill", aliases: ["pani", "water", "water bill"] },
   { key: "schoolFees", label: "School Fees", aliases: ["school", "fees", "tuition", "academy", "school fees", "coaching", "tution"] },
   { key: "transport", label: "Transport", aliases: ["transport", "petrol", "diesel", "rickshaw", "uber", "careem", "bus", "fuel", "cng"] },
-  { key: "mobileRecharge", label: "Mobile Recharge", aliases: ["mobile", "recharge", "phone", "jazz", "telenor", "zong", "ufone", "internet", "wifi"] },
   { key: "medical", label: "Medical", aliases: ["medical", "doctor", "hospital", "medicine", "dawai", "pharmacy", "clinic", "lab test"] },
   { key: "chaiNashta", label: "Food", aliases: ["chai", "tea", "nashta", "breakfast", "restaurant", "hotel", "dhaba", "khana", "lunch", "dinner", "food", "biryani", "pizza"] },
   { key: "kapray", label: "Shopping", aliases: ["kapray", "clothes", "kapra", "shoes", "joota", "shopping", "dress"] },
@@ -142,17 +167,26 @@ const CATEGORIES = [
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const PgSession = connectPgSimple(session);
+  const isProduction = process.env.NODE_ENV === "production";
+
+  if (!process.env.SESSION_SECRET) {
+    if (isProduction) {
+      throw new Error("SESSION_SECRET environment variable is required in production");
+    }
+    console.warn("WARNING: SESSION_SECRET not set — using insecure fallback. Set it in .env for production.");
+  }
+
   app.use(
     session({
       store: new PgSession({
         conString: process.env.DATABASE_URL,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "hisaabit-secret-key",
+      secret: process.env.SESSION_SECRET || "hisaabit-dev-fallback-key",
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false,
+        secure: isProduction,
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000,
         sameSite: "lax",
@@ -160,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })
   );
 
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password, name } = req.body;
 
@@ -231,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
 
@@ -264,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/resend-confirmation", async (req: Request, res: Response) => {
+  app.post("/api/auth/resend-confirmation", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
       if (!email) {
@@ -281,10 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newToken = randomBytes(32).toString("hex");
-      const { db } = await import("./db");
-      const { users } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-      await db.update(users).set({ confirmationToken: newToken }).where(eq(users.id, user.id));
+      await updateConfirmationToken(user.id, newToken);
 
       try {
         await sendConfirmationEmail(email.toLowerCase().trim(), newToken, req.get("host"));
@@ -299,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+  app.post("/api/auth/forgot-password", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
 
@@ -318,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+  app.post("/api/auth/reset-password", authLimiter, async (req: Request, res: Response) => {
     try {
       const { token, password } = req.body;
 
@@ -477,6 +508,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!amount || !category || !date) {
         return res.status(400).json({ error: "Amount, category and date are required" });
       }
+      if (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0 || amount > 100_000_000) {
+        return res.status(400).json({ error: "Amount must be a positive integer (max 100,000,000)" });
+      }
+      if (!VALID_CATEGORY_KEYS.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
       const expense = await addExpense(req.session.userId!, { amount, category, note: note || "", date });
       return res.json(expense);
     } catch (err) {
@@ -490,6 +527,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { amount, category, note, date } = req.body;
       if (!amount || !category || !date) {
         return res.status(400).json({ error: "Amount, category and date are required" });
+      }
+      if (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0 || amount > 100_000_000) {
+        return res.status(400).json({ error: "Amount must be a positive integer (max 100,000,000)" });
+      }
+      if (!VALID_CATEGORY_KEYS.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
       }
       const updated = await updateExpenseById(req.session.userId!, req.params.id as string, {
         amount,
@@ -535,6 +578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, limit, month } = req.body;
       if (!category || !limit || !month) {
         return res.status(400).json({ error: "Category, limit and month are required" });
+      }
+      if (!VALID_CATEGORY_KEYS.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
       }
       const budget = await setBudgetForUser(req.session.userId!, { category, limit, month });
       return res.json(budget);
@@ -640,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/voice-expense", upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/voice-expense", voiceLimiter, upload.single("audio"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -756,11 +802,13 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
         };
       });
 
-      await incrementVoiceUsage(req.session.userId!);
-
       let finalExpenses = validatedExpenses;
       if (plan === 'free') {
         finalExpenses = validatedExpenses.slice(0, 1);
+      }
+
+      if (finalExpenses.length > 0 && finalExpenses.some(e => e.amount > 0)) {
+        await incrementVoiceUsage(req.session.userId!);
       }
 
       return res.json({
@@ -779,6 +827,7 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
 }
 
 function confirmationPage(success: boolean, message: string): string {
+  const safeMessage = escapeHtml(message);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -789,17 +838,17 @@ function confirmationPage(success: boolean, message: string): string {
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #F8F9FA; color: #1A1A2E; }
     .container { text-align: center; padding: 40px; max-width: 400px; background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
     .icon { width: 72px; height: 72px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
-    .success { background: #0D6B3F15; }
-    .error { background: #EF444415; }
+    .success { background: rgba(13, 107, 63, 0.08); }
+    .error { background: rgba(239, 68, 68, 0.08); }
     h1 { font-size: 22px; margin: 0 0 12px; }
     p { font-size: 15px; color: #6B7280; line-height: 1.6; margin: 0; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="icon ${success ? "success" : "error"}">${success ? "✓" : "✕"}</div>
+    <div class="icon ${success ? "success" : "error"}">${success ? "&#10003;" : "&#10005;"}</div>
     <h1>${success ? "Email Confirmed!" : "Confirmation Failed"}</h1>
-    <p>${message}</p>
+    <p>${safeMessage}</p>
   </div>
 </body>
 </html>`;

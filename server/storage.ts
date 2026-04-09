@@ -26,6 +26,10 @@ export async function confirmUserEmail(token: string): Promise<boolean> {
   return result.length > 0;
 }
 
+export async function updateConfirmationToken(userId: string, token: string): Promise<void> {
+  await db.update(users).set({ confirmationToken: token }).where(eq(users.id, userId));
+}
+
 export async function setResetToken(email: string, token: string, expiry: Date): Promise<boolean> {
   const result = await db
     .update(users)
@@ -82,23 +86,25 @@ export async function getBudgetsByUser(userId: string): Promise<Budget[]> {
 }
 
 export async function setBudgetForUser(userId: string, data: { category: string; limit: number; month: string }): Promise<Budget> {
-  const existing = await db
-    .select()
-    .from(budgets)
-    .where(and(eq(budgets.userId, userId), eq(budgets.category, data.category), eq(budgets.month, data.month)))
-    .limit(1);
+  return await db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(budgets)
+      .where(and(eq(budgets.userId, userId), eq(budgets.category, data.category), eq(budgets.month, data.month)))
+      .limit(1);
 
-  if (existing.length > 0) {
-    const [updated] = await db
-      .update(budgets)
-      .set({ limit: data.limit })
-      .where(eq(budgets.id, existing[0].id))
-      .returning();
-    return updated;
-  } else {
-    const [budget] = await db.insert(budgets).values({ userId, ...data }).returning();
-    return budget;
-  }
+    if (existing.length > 0) {
+      const [updated] = await tx
+        .update(budgets)
+        .set({ limit: data.limit })
+        .where(eq(budgets.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [budget] = await tx.insert(budgets).values({ userId, ...data }).returning();
+      return budget;
+    }
+  });
 }
 
 export async function deleteBudgetForUser(userId: string, category: string, month: string): Promise<boolean> {
@@ -123,23 +129,25 @@ export async function getMonthlyBudgetForUser(userId: string, month: string): Pr
 }
 
 export async function setMonthlyBudgetForUser(userId: string, data: { month: string; totalLimit: number }): Promise<MonthlyBudget> {
-  const existing = await db
-    .select()
-    .from(monthlyBudgets)
-    .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.month, data.month)))
-    .limit(1);
+  return await db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(monthlyBudgets)
+      .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.month, data.month)))
+      .limit(1);
 
-  if (existing.length > 0) {
-    const [updated] = await db
-      .update(monthlyBudgets)
-      .set({ totalLimit: data.totalLimit })
-      .where(eq(monthlyBudgets.id, existing[0].id))
-      .returning();
-    return updated;
-  } else {
-    const [budget] = await db.insert(monthlyBudgets).values({ userId, ...data }).returning();
-    return budget;
-  }
+    if (existing.length > 0) {
+      const [updated] = await tx
+        .update(monthlyBudgets)
+        .set({ totalLimit: data.totalLimit })
+        .where(eq(monthlyBudgets.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [budget] = await tx.insert(monthlyBudgets).values({ userId, ...data }).returning();
+      return budget;
+    }
+  });
 }
 
 export async function deleteMonthlyBudgetForUser(userId: string, month: string): Promise<boolean> {
@@ -165,30 +173,34 @@ export async function getBudgetSettings(userId: string): Promise<BudgetSettings 
 }
 
 export async function setBudgetSettings(userId: string, data: { dailyLimit?: number | null; weeklyLimit?: number | null }): Promise<BudgetSettings> {
-  const existing = await db.select().from(budgetSettings).where(eq(budgetSettings.userId, userId)).limit(1);
+  return await db.transaction(async (tx) => {
+    const existing = await tx.select().from(budgetSettings).where(eq(budgetSettings.userId, userId)).limit(1);
 
-  if (existing.length > 0) {
-    const updateData: any = {};
-    if (data.dailyLimit !== undefined) updateData.dailyLimit = data.dailyLimit;
-    if (data.weeklyLimit !== undefined) updateData.weeklyLimit = data.weeklyLimit;
-    const [updated] = await db.update(budgetSettings).set(updateData).where(eq(budgetSettings.userId, userId)).returning();
-    return updated;
-  } else {
-    const [created] = await db.insert(budgetSettings).values({
-      userId,
-      dailyLimit: data.dailyLimit ?? null,
-      weeklyLimit: data.weeklyLimit ?? null,
-    }).returning();
-    return created;
-  }
+    if (existing.length > 0) {
+      const updateData: any = {};
+      if (data.dailyLimit !== undefined) updateData.dailyLimit = data.dailyLimit;
+      if (data.weeklyLimit !== undefined) updateData.weeklyLimit = data.weeklyLimit;
+      const [updated] = await tx.update(budgetSettings).set(updateData).where(eq(budgetSettings.userId, userId)).returning();
+      return updated;
+    } else {
+      const [created] = await tx.insert(budgetSettings).values({
+        userId,
+        dailyLimit: data.dailyLimit ?? null,
+        weeklyLimit: data.weeklyLimit ?? null,
+      }).returning();
+      return created;
+    }
+  });
 }
 
 export async function deleteUserAccount(userId: string): Promise<void> {
-  await db.delete(expenses).where(eq(expenses.userId, userId));
-  await db.delete(budgets).where(eq(budgets.userId, userId));
-  await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
-  await db.delete(budgetSettings).where(eq(budgetSettings.userId, userId));
-  await db.delete(users).where(eq(users.id, userId));
+  await db.transaction(async (tx) => {
+    await tx.delete(expenses).where(eq(expenses.userId, userId));
+    await tx.delete(budgets).where(eq(budgets.userId, userId));
+    await tx.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+    await tx.delete(budgetSettings).where(eq(budgetSettings.userId, userId));
+    await tx.delete(users).where(eq(users.id, userId));
+  });
 }
 
 export async function getSubscriptionInfo(userId: string): Promise<{ plan: string; voiceUsageCount: number } | null> {

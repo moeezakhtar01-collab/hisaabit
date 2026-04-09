@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import { type ThemeColors } from '@/constants/colors';
 import BudgetBar from '@/components/BudgetBar';
 import CategoryPill from '@/components/CategoryPill';
 import {
@@ -26,6 +27,8 @@ import {
   getMonthlyBudget,
   setMonthlyBudget,
   getExpensesForMonth,
+  getExpensesForWeek,
+  getExpensesForToday,
   getMonthKey,
   getMonthLabel,
   getTotalForCategory,
@@ -41,6 +44,8 @@ import {
 } from '@/lib/storage';
 
 export default function BudgetsScreen() {
+  const colors = useColors();
+  const styles = createStyles(colors);
   const insets = useSafeAreaInsets();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -77,7 +82,7 @@ export default function BudgetsScreen() {
   }, [loadData]);
 
   useEffect(() => {
-    const interval = setInterval(loadData, 2000);
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, [loadData]);
 
@@ -92,6 +97,9 @@ export default function BudgetsScreen() {
   const totalSpent = getTotalExpenses(monthExpenses);
   const monthlyLimit = monthlyBudget?.totalLimit || 0;
   const remaining = monthlyLimit - totalSpent;
+
+  const weekSpent = getTotalExpenses(getExpensesForWeek(expenses));
+  const todaySpent = getTotalExpenses(getExpensesForToday(expenses));
 
   const openAddCategoryBudget = () => {
     setEditingBudget(null);
@@ -174,6 +182,11 @@ export default function BudgetsScreen() {
       return;
     }
 
+    if (amount > 1000000) {
+      Alert.alert('Too High', 'Monthly budget cannot exceed Rs. 10,00,000');
+      return;
+    }
+
     if (currentCategoryTotal > 0 && amount < currentCategoryTotal) {
       Alert.alert(
         'Budget Too Low',
@@ -209,6 +222,10 @@ export default function BudgetsScreen() {
       Alert.alert('Invalid Amount', 'Please enter a valid amount');
       return;
     }
+    if (amount > 100000) {
+      Alert.alert('Too High', 'Daily budget cannot exceed Rs. 100,000');
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await saveBudgetSettings({ dailyLimit: amount });
     await loadData();
@@ -224,6 +241,10 @@ export default function BudgetsScreen() {
     const amount = parseInt(weeklyAmount, 10);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+    if (amount > 700000) {
+      Alert.alert('Too High', 'Weekly budget cannot exceed Rs. 700,000');
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -277,17 +298,14 @@ export default function BudgetsScreen() {
           styles.scrollContent,
           { paddingBottom: Platform.OS === 'web' ? 34 : 120 },
         ]}
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 12 }]}>
-          <View>
-            <Text style={styles.screenTitle}>Budgets</Text>
-            <Text style={styles.monthLabel}>{getMonthLabel(currentMonth)}</Text>
-          </View>
+        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
+          <Text style={styles.screenTitle}>Budgets</Text>
           <Pressable
             onPress={openAddCategoryBudget}
             style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
@@ -300,8 +318,8 @@ export default function BudgetsScreen() {
           <View style={styles.monthlyCard}>
             <View style={styles.monthlyHeader}>
               <View style={styles.monthlyTitleRow}>
-                <View style={[styles.monthlyIconBg, { backgroundColor: Colors.primary + '15' }]}>
-                  <Ionicons name="wallet" size={20} color={Colors.primary} />
+                <View style={[styles.monthlyIconBg, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons name="wallet" size={20} color={colors.primary} />
                 </View>
                 <Text style={styles.monthlyTitle}>Monthly Budget</Text>
               </View>
@@ -311,7 +329,7 @@ export default function BudgetsScreen() {
                 style={({ pressed }) => [styles.editBudgetBtn, pressed && { opacity: 0.6 }]}
                 testID="edit-monthly-budget"
               >
-                <Ionicons name="create-outline" size={20} color={Colors.primary} />
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
               </Pressable>
             </View>
 
@@ -325,14 +343,14 @@ export default function BudgetsScreen() {
                   <View style={styles.monthlyDivider} />
                   <View style={styles.monthlyAmountItem}>
                     <Text style={styles.monthlyAmountLabel}>Spent</Text>
-                    <Text style={[styles.monthlyAmountValue, totalSpent > monthlyLimit && { color: Colors.danger }]}>
+                    <Text style={[styles.monthlyAmountValue, totalSpent > monthlyLimit && { color: colors.danger }]}>
                       {formatPKR(totalSpent)}
                     </Text>
                   </View>
                   <View style={styles.monthlyDivider} />
                   <View style={styles.monthlyAmountItem}>
                     <Text style={styles.monthlyAmountLabel}>Remaining</Text>
-                    <Text style={[styles.monthlyAmountValue, { color: remaining >= 0 ? Colors.success : Colors.danger }]}>
+                    <Text style={[styles.monthlyAmountValue, { color: remaining >= 0 ? colors.success : colors.danger }]}>
                       {formatPKR(Math.abs(remaining))}
                     </Text>
                     {remaining < 0 ? (
@@ -346,7 +364,7 @@ export default function BudgetsScreen() {
                       styles.monthlyBarFill,
                       {
                         width: `${Math.min((totalSpent / monthlyLimit) * 100, 100)}%` as any,
-                        backgroundColor: totalSpent > monthlyLimit ? Colors.danger : Colors.primary,
+                        backgroundColor: totalSpent > monthlyLimit ? colors.danger : colors.primary,
                       },
                     ]}
                   />
@@ -357,70 +375,96 @@ export default function BudgetsScreen() {
               </>
             ) : (
               <Pressable onPress={openMonthlyBudgetModal} style={styles.monthlyEmpty}>
-                <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
                 <Text style={styles.monthlyEmptyText}>Tap to set your monthly budget</Text>
               </Pressable>
             )}
           </View>
         </Animated.View>
 
-        <View style={styles.periodBudgetRow}>
-          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.periodBudgetCardWrapper}>
-            <View style={styles.periodBudgetCard}>
-              <View style={styles.periodBudgetHeader}>
-                <View style={[styles.periodBudgetIconBg, { backgroundColor: Colors.warning + '15' }]}>
-                  <Ionicons name="today-outline" size={16} color={Colors.warning} />
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <View style={styles.periodRow}>
+            <Pressable onPress={openDailyModal} style={({ pressed }) => [styles.periodCard, pressed && { opacity: 0.85 }]}>
+              <View style={styles.periodCardHeader}>
+                <View style={[styles.periodIconBg, { backgroundColor: colors.warning + '15' }]}>
+                  <Ionicons name="today" size={16} color={colors.warning} />
                 </View>
-                <Text style={styles.periodBudgetTitle}>Daily Budget</Text>
+                <Text style={styles.periodTitle}>Daily Budget</Text>
               </View>
               {budgetSettings?.dailyLimit ? (
-                <View style={styles.periodBudgetBody}>
-                  <Text style={styles.periodBudgetAmount}>{formatPKR(budgetSettings.dailyLimit)}</Text>
-                  <Pressable
-                    onPress={openDailyModal}
-                    hitSlop={12}
-                    style={({ pressed }) => [styles.periodBudgetEditBtn, pressed && { opacity: 0.6 }]}
-                  >
-                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
-                  </Pressable>
-                </View>
+                <>
+                  <Text style={styles.periodAmount} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(budgetSettings.dailyLimit)}</Text>
+                  <View style={styles.periodBarBg}>
+                    <View style={[styles.periodBarFill, {
+                      width: `${Math.min((todaySpent / budgetSettings.dailyLimit) * 100, 100)}%` as any,
+                      backgroundColor: todaySpent > budgetSettings.dailyLimit ? colors.danger : colors.warning,
+                    }]} />
+                  </View>
+                  <View style={styles.periodStatsRow}>
+                    <View style={styles.periodStatItem}>
+                      <Text style={styles.periodStatLabel}>Spent</Text>
+                      <Text style={[styles.periodStatValue, todaySpent > budgetSettings.dailyLimit && { color: colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
+                        {formatPKR(todaySpent)}
+                      </Text>
+                    </View>
+                    <View style={styles.periodStatDivider} />
+                    <View style={styles.periodStatItem}>
+                      <Text style={styles.periodStatLabel}>Remaining</Text>
+                      <Text style={[styles.periodStatValue, { color: budgetSettings.dailyLimit - todaySpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
+                        {formatPKR(Math.abs(budgetSettings.dailyLimit - todaySpent))}
+                      </Text>
+                    </View>
+                  </View>
+                </>
               ) : (
-                <Pressable onPress={openDailyModal} style={styles.periodBudgetEmpty}>
-                  <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.periodBudgetEmptyText}>Tap to set</Text>
-                </Pressable>
-              )}
-            </View>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(175).duration(400)} style={styles.periodBudgetCardWrapper}>
-            <View style={styles.periodBudgetCard}>
-              <View style={styles.periodBudgetHeader}>
-                <View style={[styles.periodBudgetIconBg, { backgroundColor: Colors.accent + '15' }]}>
-                  <Ionicons name="calendar-outline" size={16} color={Colors.accent} />
+                <View style={styles.periodEmpty}>
+                  <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                  <Text style={styles.periodEmptyText}>Tap to set</Text>
                 </View>
-                <Text style={styles.periodBudgetTitle}>Weekly Budget</Text>
+              )}
+            </Pressable>
+
+            <Pressable onPress={openWeeklyModal} style={({ pressed }) => [styles.periodCard, pressed && { opacity: 0.85 }]}>
+              <View style={styles.periodCardHeader}>
+                <View style={[styles.periodIconBg, { backgroundColor: colors.accent + '15' }]}>
+                  <Ionicons name="calendar" size={16} color={colors.accent} />
+                </View>
+                <Text style={styles.periodTitle}>Weekly Budget</Text>
               </View>
               {budgetSettings?.weeklyLimit ? (
-                <View style={styles.periodBudgetBody}>
-                  <Text style={styles.periodBudgetAmount}>{formatPKR(budgetSettings.weeklyLimit)}</Text>
-                  <Pressable
-                    onPress={openWeeklyModal}
-                    hitSlop={12}
-                    style={({ pressed }) => [styles.periodBudgetEditBtn, pressed && { opacity: 0.6 }]}
-                  >
-                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
-                  </Pressable>
-                </View>
+                <>
+                  <Text style={styles.periodAmount} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(budgetSettings.weeklyLimit)}</Text>
+                  <View style={styles.periodBarBg}>
+                    <View style={[styles.periodBarFill, {
+                      width: `${Math.min((weekSpent / budgetSettings.weeklyLimit) * 100, 100)}%` as any,
+                      backgroundColor: weekSpent > budgetSettings.weeklyLimit ? colors.danger : colors.accent,
+                    }]} />
+                  </View>
+                  <View style={styles.periodStatsRow}>
+                    <View style={styles.periodStatItem}>
+                      <Text style={styles.periodStatLabel}>Spent</Text>
+                      <Text style={[styles.periodStatValue, weekSpent > budgetSettings.weeklyLimit && { color: colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
+                        {formatPKR(weekSpent)}
+                      </Text>
+                    </View>
+                    <View style={styles.periodStatDivider} />
+                    <View style={styles.periodStatItem}>
+                      <Text style={styles.periodStatLabel}>Remaining</Text>
+                      <Text style={[styles.periodStatValue, { color: budgetSettings.weeklyLimit - weekSpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
+                        {formatPKR(Math.abs(budgetSettings.weeklyLimit - weekSpent))}
+                      </Text>
+                    </View>
+                  </View>
+                </>
               ) : (
-                <Pressable onPress={openWeeklyModal} style={styles.periodBudgetEmpty}>
-                  <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.periodBudgetEmptyText}>Tap to set</Text>
-                </Pressable>
+                <View style={styles.periodEmpty}>
+                  <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                  <Text style={styles.periodEmptyText}>Tap to set</Text>
+                </View>
               )}
-            </View>
-          </Animated.View>
-        </View>
+            </Pressable>
+          </View>
+        </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <View style={styles.sectionHeader}>
@@ -429,7 +473,7 @@ export default function BudgetsScreen() {
 
           {monthBudgets.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="layers-outline" size={40} color={Colors.textSecondary} />
+              <Ionicons name="layers-outline" size={40} color={colors.textSecondary} />
               <Text style={styles.emptyText}>No category budgets</Text>
               <Text style={styles.emptySubText}>Tap + to set limits for specific categories</Text>
             </View>
@@ -465,7 +509,7 @@ export default function BudgetsScreen() {
               {editingBudget ? 'Edit Budget' : 'Add Category Budget'}
             </Text>
             <Pressable onPress={() => setShowCategoryModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
@@ -491,11 +535,11 @@ export default function BudgetsScreen() {
               onChangeText={setBudgetAmount}
               keyboardType="numeric"
               placeholder="e.g. 15000"
-              placeholderTextColor={Colors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
             />
             {monthlyLimit > 0 && (
               <View style={styles.budgetHintRow}>
-                <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+                <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
                 <Text style={styles.budgetHintText}>
                   {(() => {
                     const existingForCat = monthBudgets.find(b => b.category === selectedCategory)?.limit || 0;
@@ -530,7 +574,7 @@ export default function BudgetsScreen() {
                     pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                   ]}
                 >
-                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
                   <Text style={styles.deleteButtonText}>Remove</Text>
                 </Pressable>
               ) : null}
@@ -551,13 +595,13 @@ export default function BudgetsScreen() {
               {monthlyLimit > 0 ? 'Edit Monthly Budget' : 'Set Monthly Budget'}
             </Text>
             <Pressable onPress={() => setShowMonthlyModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
           <View style={styles.monthlyModalContent}>
             <View style={styles.monthlyModalIcon}>
-              <Ionicons name="wallet" size={40} color={Colors.primary} />
+              <Ionicons name="wallet" size={40} color={colors.primary} />
             </View>
             <Text style={styles.monthlyModalLabel}>
               How much do you want to spend this month?
@@ -572,7 +616,7 @@ export default function BudgetsScreen() {
                 onChangeText={setMonthlyAmount}
                 keyboardType="numeric"
                 placeholder="50,000"
-                placeholderTextColor={Colors.border}
+                placeholderTextColor={colors.border}
                 autoFocus
               />
             </View>
@@ -605,13 +649,13 @@ export default function BudgetsScreen() {
               {budgetSettings?.dailyLimit ? 'Edit Daily Budget' : 'Set Daily Budget'}
             </Text>
             <Pressable onPress={() => setShowDailyModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
           <View style={styles.monthlyModalContent}>
-            <View style={[styles.monthlyModalIcon, { backgroundColor: Colors.warning + '12' }]}>
-              <Ionicons name="today" size={40} color={Colors.warning} />
+            <View style={[styles.monthlyModalIcon, { backgroundColor: colors.warning + '12' }]}>
+              <Ionicons name="today" size={40} color={colors.warning} />
             </View>
             <Text style={styles.monthlyModalLabel}>
               How much do you want to spend per day?
@@ -625,7 +669,7 @@ export default function BudgetsScreen() {
                 onChangeText={setDailyAmount}
                 keyboardType="numeric"
                 placeholder="2,000"
-                placeholderTextColor={Colors.border}
+                placeholderTextColor={colors.border}
                 autoFocus
               />
             </View>
@@ -650,7 +694,7 @@ export default function BudgetsScreen() {
                   pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 <Text style={styles.deleteButtonText}>Remove Daily Budget</Text>
               </Pressable>
             ) : null}
@@ -670,13 +714,13 @@ export default function BudgetsScreen() {
               {budgetSettings?.weeklyLimit ? 'Edit Weekly Budget' : 'Set Weekly Budget'}
             </Text>
             <Pressable onPress={() => setShowWeeklyModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
           <View style={styles.monthlyModalContent}>
-            <View style={[styles.monthlyModalIcon, { backgroundColor: Colors.accent + '12' }]}>
-              <Ionicons name="calendar" size={40} color={Colors.accent} />
+            <View style={[styles.monthlyModalIcon, { backgroundColor: colors.accent + '12' }]}>
+              <Ionicons name="calendar" size={40} color={colors.accent} />
             </View>
             <Text style={styles.monthlyModalLabel}>
               How much do you want to spend per week?
@@ -690,7 +734,7 @@ export default function BudgetsScreen() {
                 onChangeText={setWeeklyAmount}
                 keyboardType="numeric"
                 placeholder="10,000"
-                placeholderTextColor={Colors.border}
+                placeholderTextColor={colors.border}
                 autoFocus
               />
             </View>
@@ -715,7 +759,7 @@ export default function BudgetsScreen() {
                   pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 <Text style={styles.deleteButtonText}>Remove Weekly Budget</Text>
               </Pressable>
             ) : null}
@@ -726,10 +770,10 @@ export default function BudgetsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -747,29 +791,29 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   monthLabel: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthlyCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   monthlyHeader: {
     flexDirection: 'row',
@@ -792,7 +836,7 @@ const styles = StyleSheet.create({
   monthlyTitle: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   monthlyAmounts: {
     flexDirection: 'row',
@@ -806,30 +850,30 @@ const styles = StyleSheet.create({
   monthlyDivider: {
     width: 1,
     height: 36,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
   },
   monthlyAmountLabel: {
     fontSize: 11,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
   monthlyAmountValue: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   overBudgetLabel: {
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.danger,
+    color: colors.danger,
     textTransform: 'uppercase' as const,
   },
   monthlyBarBg: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     marginTop: 14,
     overflow: 'hidden',
   },
@@ -840,7 +884,7 @@ const styles = StyleSheet.create({
   monthlyPercent: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'right',
     marginTop: 6,
   },
@@ -857,7 +901,7 @@ const styles = StyleSheet.create({
   monthlyEmptyText: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.primary,
+    color: colors.primary,
   },
   sectionHeader: {
     paddingHorizontal: 20,
@@ -867,32 +911,32 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   emptyContainer: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 28,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     gap: 8,
   },
   emptyText: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   emptySubText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -901,12 +945,12 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 24,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   modalScroll: {
     flex: 1,
@@ -919,7 +963,7 @@ const styles = StyleSheet.create({
   modalSectionLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -927,21 +971,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   amountInput: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     fontSize: 18,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   modalButtonRow: {
     gap: 12,
     marginTop: 8,
   },
   saveButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',
@@ -959,13 +1003,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: Colors.danger + '40',
-    backgroundColor: Colors.danger + '08',
+    borderColor: colors.danger + '40',
+    backgroundColor: colors.danger + '08',
   },
   deleteButtonText: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.danger,
+    color: colors.danger,
   },
   monthlyModalContent: {
     padding: 24,
@@ -976,7 +1020,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -984,13 +1028,13 @@ const styles = StyleSheet.create({
   monthlyModalLabel: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
   monthlyModalSub: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   monthlyInputRow: {
@@ -1001,13 +1045,13 @@ const styles = StyleSheet.create({
   currencyPrefix: {
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   budgetHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primary + '08',
+    backgroundColor: colors.primary + '08',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -1016,74 +1060,104 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   monthlyInput: {
     fontSize: 36,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
     minWidth: 160,
     paddingVertical: 8,
     borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    borderBottomColor: colors.primary,
   },
-  periodBudgetRow: {
+  periodRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 10,
   },
-  periodBudgetCardWrapper: {
+  periodCard: {
     flex: 1,
-  },
-  periodBudgetCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 14,
-    padding: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
-  periodBudgetHeader: {
+  periodCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 10,
   },
-  periodBudgetIconBg: {
+  periodIconBg: {
     width: 28,
     height: 28,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  periodBudgetTitle: {
+  periodTitle: {
     fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.textSecondary,
   },
-  periodBudgetBody: {
+  periodAmount: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  periodBarBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  periodBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  periodStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginTop: 2,
   },
-  periodBudgetAmount: {
-    fontSize: 15,
+  periodStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    gap: 2,
+  },
+  periodStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
+  },
+  periodStatLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    color: colors.textSecondary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.3,
+  },
+  periodStatValue: {
+    fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
-  periodBudgetEditBtn: {
-    padding: 4,
-  },
-  periodBudgetEmpty: {
+  periodEmpty: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
-  periodBudgetEmptyText: {
+  periodEmptyText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

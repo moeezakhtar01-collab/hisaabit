@@ -1,15 +1,16 @@
-import { View, Text, StyleSheet, Pressable, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, ScrollView, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Colors from '@/constants/colors';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const navigateTo = (screen: string) => {
@@ -34,6 +35,8 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  const styles = createStyles(colors);
 
   return (
     <View style={styles.screen}>
@@ -66,11 +69,11 @@ export default function ProfileScreen() {
 
           <View style={styles.menuCard}>
             <Pressable style={styles.menuItem} onPress={() => navigateTo('/edit-profile')} testID="profile-menu-item">
-              <View style={[styles.menuIconBg, { backgroundColor: Colors.primary + '15' }]}>
-                <Ionicons name="person-outline" size={18} color={Colors.primary} />
+              <View style={[styles.menuIconBg, { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons name="person-outline" size={18} color={colors.primary} />
               </View>
               <Text style={styles.menuLabel}>Profile</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
             <View style={styles.menuDivider} />
@@ -85,8 +88,26 @@ export default function ProfileScreen() {
                   {(user?.subscriptionPlan || 'free').toUpperCase()}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <View style={styles.menuItem}>
+              <View style={[styles.menuIconBg, { backgroundColor: '#6366F115' }]}>
+                <Ionicons name={isDark ? 'moon' : 'moon-outline'} size={18} color="#6366F1" />
+              </View>
+              <Text style={styles.menuLabel}>Dark Mode</Text>
+              <Switch
+                value={isDark}
+                onValueChange={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  toggleTheme();
+                }}
+                trackColor={{ false: colors.border, true: colors.primary + '80' }}
+                thumbColor={isDark ? colors.primary : '#f4f3f4'}
+              />
+            </View>
 
             <View style={styles.menuDivider} />
 
@@ -95,7 +116,7 @@ export default function ProfileScreen() {
                 <Ionicons name="notifications-outline" size={18} color="#3B82F6" />
               </View>
               <Text style={styles.menuLabel}>Notifications</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
             <View style={styles.menuDivider} />
@@ -105,7 +126,7 @@ export default function ProfileScreen() {
                 <Ionicons name="shield-checkmark-outline" size={18} color="#8B5CF6" />
               </View>
               <Text style={styles.menuLabel}>Privacy</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
           </View>
         </Animated.View>
@@ -119,7 +140,7 @@ export default function ProfileScreen() {
                 <Ionicons name="help-circle-outline" size={18} color="#F59E0B" />
               </View>
               <Text style={styles.menuLabel}>Help & FAQ</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
             <View style={styles.menuDivider} />
@@ -129,7 +150,7 @@ export default function ProfileScreen() {
                 <Ionicons name="information-circle-outline" size={18} color="#06B6D4" />
               </View>
               <Text style={styles.menuLabel}>About</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.border} />
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
           </View>
         </Animated.View>
@@ -140,7 +161,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => [styles.logoutButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
             testID="logout-button"
           >
-            <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
             <Text style={styles.logoutText}>Log Out</Text>
           </Pressable>
         </Animated.View>
@@ -151,10 +172,10 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof import('@/constants/colors').lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -169,16 +190,16 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   profileCard: {
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 6,
   },
   avatarContainer: {
@@ -188,7 +209,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -200,12 +221,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   userEmail: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   section: {
     gap: 10,
@@ -213,17 +234,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
     paddingHorizontal: 20,
   },
   menuCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   menuItem: {
@@ -244,11 +265,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text,
+    color: colors.text,
   },
   menuDivider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     marginLeft: 62,
   },
   logoutButton: {
@@ -256,20 +277,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.danger + '08',
+    backgroundColor: colors.danger + '08',
     borderRadius: 14,
     padding: 16,
     marginHorizontal: 16,
     borderWidth: 1.5,
-    borderColor: Colors.danger + '25',
+    borderColor: colors.danger + '25',
   },
   logoutText: {
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.danger,
+    color: colors.danger,
   },
   planBadge: {
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -278,7 +299,7 @@ const styles = StyleSheet.create({
   planBadgeText: {
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   proPlanBadgeText: {
     color: '#F59E0B',
@@ -286,7 +307,7 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },

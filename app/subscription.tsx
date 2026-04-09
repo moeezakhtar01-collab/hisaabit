@@ -14,8 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
+import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { fetch } from 'expo/fetch';
 
@@ -46,6 +47,8 @@ const PRO_FEATURES: PlanFeature[] = [
 
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -126,7 +129,7 @@ export default function SubscriptionScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Subscription</Text>
         <View style={{ width: 24 }} />
@@ -140,7 +143,7 @@ export default function SubscriptionScreen() {
         {currentPlan === 'free' && (
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.usageBanner}>
             <View style={styles.usageRow}>
-              <Ionicons name="mic" size={20} color={Colors.primary} />
+              <Ionicons name="mic" size={20} color={colors.primary} />
               <Text style={styles.usageLabel}>AI Voice Entries</Text>
             </View>
             <View style={styles.usageBarContainer}>
@@ -163,7 +166,7 @@ export default function SubscriptionScreen() {
           )}
           <View style={styles.planHeader}>
             <View style={styles.planIconBg}>
-              <Ionicons name="wallet-outline" size={24} color={Colors.primary} />
+              <Ionicons name="wallet-outline" size={24} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.planName}>Free</Text>
@@ -176,7 +179,7 @@ export default function SubscriptionScreen() {
                 <Ionicons
                   name={feature.included ? 'checkmark-circle' : 'close-circle'}
                   size={18}
-                  color={feature.included ? Colors.primary : Colors.textSecondary + '60'}
+                  color={feature.included ? colors.primary : colors.textSecondary + '60'}
                 />
                 <Text style={[styles.featureText, !feature.included && styles.featureTextDisabled]}>
                   {feature.text}
@@ -191,7 +194,7 @@ export default function SubscriptionScreen() {
               style={({ pressed }) => [styles.downgradeButton, pressed && { opacity: 0.8 }]}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={Colors.textSecondary} />
+                <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
                 <Text style={styles.downgradeButtonText}>Switch to Free</Text>
               )}
@@ -255,10 +258,10 @@ export default function SubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -267,12 +270,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -282,11 +285,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   usageBanner: {
-    backgroundColor: Colors.primary + '08',
+    backgroundColor: colors.primary + '08',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.primary + '20',
+    borderColor: colors.primary + '20',
     gap: 10,
   },
   usageRow: {
@@ -297,34 +300,34 @@ const styles = StyleSheet.create({
   usageLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   usageBarContainer: {
     height: 8,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
     borderRadius: 4,
     overflow: 'hidden',
   },
   usageBar: {
     height: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 4,
   },
   usageText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   planCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 16,
   },
   planCardActive: {
-    borderColor: Colors.primary + '50',
+    borderColor: colors.primary + '50',
   },
   proCard: {},
   proCardActive: {
@@ -332,7 +335,7 @@ const styles = StyleSheet.create({
   },
   currentBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.primary + '15',
+    backgroundColor: colors.primary + '15',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -340,7 +343,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   proBadge: {
     backgroundColor: '#F59E0B15',
@@ -357,7 +360,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: Colors.primary + '12',
+    backgroundColor: colors.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -367,12 +370,12 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 20,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   planPrice: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   featureList: {
     gap: 10,
@@ -385,11 +388,11 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text,
+    color: colors.text,
     flex: 1,
   },
   featureTextDisabled: {
-    color: Colors.textSecondary + '80',
+    color: colors.textSecondary + '80',
     textDecorationLine: 'line-through',
   },
   upgradeButton: {
@@ -412,12 +415,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   downgradeButtonText: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   bundleBadge: {
     flexDirection: 'row',

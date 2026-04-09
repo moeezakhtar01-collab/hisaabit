@@ -14,11 +14,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
+import type { lightColors } from '@/constants/colors';
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = createStyles(colors);
   const { user, updateProfile, changePassword } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
@@ -105,7 +108,7 @@ export default function EditProfileScreen() {
     >
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} testID="close-button">
-          <Ionicons name="close" size={28} color={Colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={{ width: 28 }} />
@@ -129,7 +132,7 @@ export default function EditProfileScreen() {
                 setNameSuccess('');
               }}
               placeholder="Your name"
-              placeholderTextColor={Colors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               autoCapitalize="words"
               testID="name-input"
             />
@@ -143,7 +146,7 @@ export default function EditProfileScreen() {
               ]}
               testID="save-name-button"
             >
-              <Ionicons name="checkmark-circle" size={32} color={Colors.primary} />
+              <Ionicons name="checkmark-circle" size={32} color={colors.primary} />
             </Pressable>
           </View>
           {nameSuccess ? (
@@ -165,7 +168,7 @@ export default function EditProfileScreen() {
               setPasswordSuccess('');
             }}
             placeholder="Current password"
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             secureTextEntry
             autoCapitalize="none"
             testID="current-password-input"
@@ -179,7 +182,7 @@ export default function EditProfileScreen() {
               setPasswordSuccess('');
             }}
             placeholder="New password (min 6 characters)"
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             secureTextEntry
             autoCapitalize="none"
             testID="new-password-input"
@@ -193,7 +196,7 @@ export default function EditProfileScreen() {
               setPasswordSuccess('');
             }}
             placeholder="Confirm new password"
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             secureTextEntry
             autoCapitalize="none"
             testID="confirm-password-input"
@@ -222,10 +225,10 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -234,12 +237,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   scrollView: {
     flex: 1,
@@ -249,17 +252,17 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     padding: 16,
     gap: 12,
   },
   sectionLabel: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   nameRow: {
     flexDirection: 'row',
@@ -270,14 +273,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 14,
     padding: 16,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   iconButton: {
     padding: 4,
@@ -286,7 +289,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 16,
     marginTop: 4,
@@ -294,11 +297,11 @@ const styles = StyleSheet.create({
   successText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.success,
+    color: colors.success,
   },
   errorText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: Colors.danger,
+    color: colors.danger,
   },
 });

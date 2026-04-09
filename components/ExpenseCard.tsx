@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, SlideInRight } from 'react-native-reanimated';
-import Colors from '@/constants/colors';
+import { useColors } from '@/lib/theme-context';
+import { type ThemeColors } from '@/constants/colors';
 import { Expense, getCategoryLabel, getCategoryIcon, formatPKR, formatDate } from '@/lib/storage';
 
 interface ExpenseCardProps {
@@ -12,7 +13,9 @@ interface ExpenseCardProps {
 }
 
 export default function ExpenseCard({ expense, onDelete, onEdit, index }: ExpenseCardProps) {
-  const categoryColor = Colors.categories[expense.category as keyof typeof Colors.categories] || Colors.categories.general;
+  const colors = useColors();
+  const styles = createStyles(colors);
+  const categoryColor = colors.categories[expense.category as keyof typeof colors.categories] || colors.categories.general;
 
   return (
     <Animated.View
@@ -54,18 +57,18 @@ export default function ExpenseCard({ expense, onDelete, onEdit, index }: Expens
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   cardPressed: {
     opacity: 0.7,
@@ -86,12 +89,12 @@ const styles = StyleSheet.create({
   category: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: colors.text,
   },
   note: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   amountContainer: {
     alignItems: 'flex-end',
@@ -100,11 +103,11 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text,
+    color: colors.text,
   },
   date: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });
