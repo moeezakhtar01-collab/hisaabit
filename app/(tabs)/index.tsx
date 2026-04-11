@@ -31,6 +31,7 @@ import {
   formatPKR,
   getTotalExpenses,
 } from '@/lib/storage';
+import { getPendingCount } from '@/lib/sms-storage';
 
 type PeriodTab = 'monthly' | 'weekly' | 'daily';
 
@@ -42,12 +43,18 @@ export default function HomeScreen() {
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<PeriodTab>('monthly');
+  const [smsPendingCount, setSmsPendingCount] = useState(0);
   const currentMonth = getMonthKey();
 
   const loadExpenses = useCallback(async () => {
-    const [all, mb] = await Promise.all([getExpenses(), getMonthlyBudget(currentMonth)]);
+    const [all, mb, pendingCt] = await Promise.all([
+      getExpenses(),
+      getMonthlyBudget(currentMonth),
+      getPendingCount(),
+    ]);
     setExpenses(all);
     setMonthlyBudgetState(mb);
+    setSmsPendingCount(pendingCt);
   }, [currentMonth]);
 
   const navigation = useNavigation();
@@ -186,6 +193,32 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+
+        {smsPendingCount > 0 && (
+          <Animated.View entering={FadeInDown.delay(125).duration(400)}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                (router as any).push('/sms-expenses');
+              }}
+              style={({ pressed }) => [
+                styles.smsBanner,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              ]}
+            >
+              <View style={styles.smsBannerIcon}>
+                <Ionicons name="mail-unread" size={18} color={colors.warning} />
+              </View>
+              <View style={styles.smsBannerText}>
+                <Text style={styles.smsBannerTitle}>
+                  {smsPendingCount} SMS expense{smsPendingCount > 1 ? 's' : ''} detected
+                </Text>
+                <Text style={styles.smsBannerSubtitle}>Tap to review</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </Animated.View>
+        )}
 
         <Animated.View entering={FadeInDown.delay(150).duration(500)}>
           <WeeklyOverview expenses={expenses} />
@@ -436,5 +469,38 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: 'rgba(255,255,255,0.5)',
     marginTop: 2,
+  },
+  smsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '10',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+    gap: 12,
+  },
+  smsBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.warning + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smsBannerText: {
+    flex: 1,
+    gap: 1,
+  },
+  smsBannerTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.text,
+  },
+  smsBannerSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
   },
 });

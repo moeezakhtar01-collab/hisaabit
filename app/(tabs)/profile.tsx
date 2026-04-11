@@ -121,6 +121,16 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/sms-settings')} testID="sms-settings-menu-item">
+              <View style={[styles.menuIconBg, { backgroundColor: '#10B98115' }]}>
+                <Ionicons name="chatbox-ellipses-outline" size={18} color="#10B981" />
+              </View>
+              <Text style={styles.menuLabel}>SMS Expenses</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
             <Pressable style={styles.menuItem} onPress={() => navigateTo('/privacy')} testID="privacy-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#8B5CF615' }]}>
                 <Ionicons name="shield-checkmark-outline" size={18} color="#8B5CF6" />

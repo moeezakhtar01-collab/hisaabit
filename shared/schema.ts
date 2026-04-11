@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,6 +16,8 @@ export const users = pgTable("users", {
   resetTokenExpiry: timestamp("reset_token_expiry"),
   subscriptionPlan: text("subscription_plan").default("free").notNull(),
   voiceUsageCount: integer("voice_usage_count").default(0).notNull(),
+  smsParsingEnabled: boolean("sms_parsing_enabled").default(false).notNull(),
+  lastSmsReadTimestamp: timestamp("last_sms_read_timestamp"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -59,6 +61,33 @@ export const budgetSettings = pgTable("budget_settings", {
   weeklyLimit: integer("weekly_limit"),
 });
 
+export const processedSms = pgTable("processed_sms", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  smsHash: text("sms_hash").notNull(),
+  smsTimestamp: timestamp("sms_timestamp"),
+  processedAt: timestamp("processed_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("processed_sms_user_hash_idx").on(table.userId, table.smsHash),
+]);
+
+export const pendingExpenses = pgTable("pending_expenses", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  category: text("category").notNull(),
+  note: text("note").default(""),
+  date: text("date").notNull(),
+  smsSender: text("sms_sender"),
+  smsBody: text("sms_body"),
+  status: text("status").default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
@@ -71,3 +100,5 @@ export type Expense = typeof expenses.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
 export type BudgetSettings = typeof budgetSettings.$inferSelect;
+export type ProcessedSms = typeof processedSms.$inferSelect;
+export type PendingExpense = typeof pendingExpenses.$inferSelect;

@@ -35,8 +35,21 @@ import {
   getSubscriptionInfo,
   updateSubscriptionPlan,
   incrementVoiceUsage,
+  bulkCheckProcessedSms,
+  markSmsBulkProcessed,
+  getPendingExpensesByUser,
+  getPendingExpenseCount,
+  bulkAddPendingExpenses,
+  updatePendingExpense,
+  confirmPendingExpense,
+  dismissPendingExpense,
+  confirmAllPending,
+  dismissAllPending,
+  getSmsSettings,
+  updateSmsParsingEnabled,
+  updateLastSmsReadTimestamp,
 } from "./storage";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 
 declare module "express-session" {
   interface SessionData {
@@ -81,6 +94,7 @@ function rateLimit(windowMs: number, maxRequests: number) {
 
 const authLimiter = rateLimit(15 * 60 * 1000, 15);
 const voiceLimiter = rateLimit(60 * 60 * 1000, 30);
+const smsLimiter = rateLimit(60 * 60 * 1000, 20);
 
 const VALID_CATEGORY_KEYS = [
   "kiryana", "bijliBill", "gasBill", "paniBill",
@@ -817,6 +831,250 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
     } catch (err: any) {
       console.error("Voice expense error:", err);
       return res.status(500).json({ error: "Failed to process voice note. Please try again." });
+    }
+  });
+
+  // ─── SMS Expense Endpoints ──────────────────────────────────────
+
+  app.post("/api/sms/process", smsLimiter, requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { messages } = req.body;
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "No messages provided" });
+      }
+
+      // Cap at 50 messages per request
+      const capped = messages.slice(0, 50);
+
+      // Compute hashes and deduplicate against already-processed
+      const hashMap = capped.map((m: { sender: string; body: string; timestamp: number }) => ({
+        ...m,
+        hash: createHash("sha256").update(`${m.sender}|${m.body}|${m.timestamp}`).digest("hex"),
+      }));
+
+      const alreadyProcessed = await bulkCheckProcessedSms(req.session.userId!, hashMap.map(h => h.hash));
+      const newMessages = hashMap.filter(h => !alreadyProcessed.has(h.hash));
+
+      if (newMessages.length === 0) {
+        return res.json({ processed: 0, pending: 0, skipped: capped.length });
+      }
+
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "OpenAI API key not configured" });
+      }
+
+      const openai = new OpenAI({ apiKey });
+      const todayStr = new Date().toISOString().split("T")[0];
+      const categoryList = CATEGORIES.map(c => `"${c.key}" (${c.label})`).join(", ");
+
+      const smsArray = newMessages.map((m, i) => ({
+        index: i,
+        sender: m.sender,
+        body: m.body,
+      }));
+
+      const extraction = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `You extract expense details from Pakistani bank transaction SMS messages.
+Today's date is ${todayStr}.
+
+For each SMS, extract:
+1. amount: Transaction amount in PKR (integer). Parse from formats like "Rs.2,500", "PKR 1500", "Rs 500.00", "amount: 3,000".
+2. category: One of these exact keys: ${categoryList}.
+   Categorize based on merchant name or description:
+   - Supermarkets/grocery stores (Imtiaz, Metro, Al-Fatah, Chase Up) -> "kiryana"
+   - Fuel stations (PSO, Shell, Total, Attock) -> "transport"
+   - Restaurants/food chains (KFC, McDonald's, Dominos, dhabas) -> "chaiNashta"
+   - Pharmacies (Fazal Din, D.Watson, Servaid) -> "medical"
+   - Clothing stores (Khaadi, Gul Ahmed, Sapphire, Alkaram) -> "kapray"
+   - Utility bills (WAPDA, K-Electric, SSGC, SNGPL) -> match specific bill category
+   - School/academy/tuition payments -> "schoolFees"
+   - Rent/house payments -> "rent"
+   - ATM withdrawals or general POS -> "general"
+   - If merchant unclear -> "general"
+3. note: Brief English description. Include merchant name if available. Example: "Purchase at Imtiaz Supermarket" or "ATM withdrawal" or "Transfer to Ali".
+4. date: Extract date from SMS if present (YYYY-MM-DD). If not in SMS, use today's date.
+5. type: "debit" or "credit". Only debit transactions become expenses.
+
+Respond with ONLY a JSON array (one object per SMS that is a debit transaction):
+[{"amount": number, "category": "key", "note": "description", "date": "YYYY-MM-DD", "type": "debit", "smsIndex": 0}]
+
+Important:
+- Only return DEBIT transactions (purchases, payments, withdrawals, transfers sent). Skip credit/incoming transactions entirely.
+- Parse Pakistani number formats: "2,500" = 2500, "1.5K" = 1500, "50,000.00" = 50000
+- Round to nearest integer (no decimals)
+- If amount cannot be determined, skip that SMS entirely
+- smsIndex corresponds to the "index" field in the input array`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify(smsArray),
+          },
+        ],
+      });
+
+      const content = extraction.choices[0]?.message?.content || "[]";
+      let parsed: { amount: number; category: string; note: string; date: string; type: string; smsIndex: number }[];
+      try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+        if (!Array.isArray(parsed)) parsed = [];
+      } catch {
+        parsed = [];
+      }
+
+      // Validate and build pending expenses
+      const pendingItems = parsed
+        .filter(e => e.type === "debit" && e.amount > 0 && e.smsIndex >= 0 && e.smsIndex < newMessages.length)
+        .map(e => {
+          const validCategory = VALID_CATEGORY_KEYS.includes(e.category) ? e.category : "general";
+          const dateStr = e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : todayStr;
+          const sourceMsg = newMessages[e.smsIndex];
+          return {
+            amount: Math.round(e.amount),
+            category: validCategory,
+            note: e.note || "",
+            date: dateStr,
+            smsSender: sourceMsg?.sender || undefined,
+            smsBody: sourceMsg?.body || undefined,
+          };
+        });
+
+      // Save pending expenses
+      const created = await bulkAddPendingExpenses(req.session.userId!, pendingItems);
+
+      // Mark all submitted SMS as processed
+      await markSmsBulkProcessed(
+        req.session.userId!,
+        newMessages.map(m => ({
+          hash: m.hash,
+          timestamp: m.timestamp ? new Date(m.timestamp) : undefined,
+        }))
+      );
+
+      // Update last read timestamp
+      await updateLastSmsReadTimestamp(req.session.userId!, new Date());
+
+      return res.json({
+        processed: newMessages.length,
+        pending: created.length,
+        skipped: capped.length - newMessages.length,
+      });
+    } catch (err: any) {
+      console.error("SMS process error:", err);
+      return res.status(500).json({ error: "Failed to process SMS messages" });
+    }
+  });
+
+  app.get("/api/sms/pending", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const pending = await getPendingExpensesByUser(req.session.userId!);
+      return res.json(pending);
+    } catch (err) {
+      console.error("Get pending SMS error:", err);
+      return res.status(500).json({ error: "Failed to get pending expenses" });
+    }
+  });
+
+  app.get("/api/sms/pending/count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const count = await getPendingExpenseCount(req.session.userId!);
+      return res.json({ count });
+    } catch (err) {
+      console.error("Get pending count error:", err);
+      return res.status(500).json({ error: "Failed to get pending count" });
+    }
+  });
+
+  app.put("/api/sms/pending/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { amount, category, note, date } = req.body;
+      if (category && !VALID_CATEGORY_KEYS.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+      if (amount !== undefined && (typeof amount !== "number" || amount <= 0)) {
+        return res.status(400).json({ error: "Amount must be a positive number" });
+      }
+      const updated = await updatePendingExpense(req.session.userId!, req.params.id as string, { amount, category, note, date });
+      if (!updated) return res.status(404).json({ error: "Pending expense not found" });
+      return res.json(updated);
+    } catch (err) {
+      console.error("Update pending error:", err);
+      return res.status(500).json({ error: "Failed to update pending expense" });
+    }
+  });
+
+  app.post("/api/sms/pending/:id/confirm", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const expense = await confirmPendingExpense(req.session.userId!, req.params.id as string);
+      if (!expense) return res.status(404).json({ error: "Pending expense not found" });
+      return res.json(expense);
+    } catch (err) {
+      console.error("Confirm pending error:", err);
+      return res.status(500).json({ error: "Failed to confirm expense" });
+    }
+  });
+
+  app.post("/api/sms/pending/:id/dismiss", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const dismissed = await dismissPendingExpense(req.session.userId!, req.params.id as string);
+      if (!dismissed) return res.status(404).json({ error: "Pending expense not found" });
+      return res.json({ message: "Dismissed" });
+    } catch (err) {
+      console.error("Dismiss pending error:", err);
+      return res.status(500).json({ error: "Failed to dismiss expense" });
+    }
+  });
+
+  app.post("/api/sms/pending/confirm-all", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const created = await confirmAllPending(req.session.userId!);
+      return res.json({ confirmed: created.length, expenses: created });
+    } catch (err) {
+      console.error("Confirm all error:", err);
+      return res.status(500).json({ error: "Failed to confirm all expenses" });
+    }
+  });
+
+  app.post("/api/sms/pending/dismiss-all", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const count = await dismissAllPending(req.session.userId!);
+      return res.json({ dismissed: count });
+    } catch (err) {
+      console.error("Dismiss all error:", err);
+      return res.status(500).json({ error: "Failed to dismiss all expenses" });
+    }
+  });
+
+  app.get("/api/sms/settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const settings = await getSmsSettings(req.session.userId!);
+      return res.json({
+        smsParsingEnabled: settings.smsParsingEnabled,
+        lastSmsReadTimestamp: settings.lastSmsReadTimestamp?.toISOString() || null,
+      });
+    } catch (err) {
+      console.error("Get SMS settings error:", err);
+      return res.status(500).json({ error: "Failed to get SMS settings" });
+    }
+  });
+
+  app.put("/api/sms/settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { smsParsingEnabled } = req.body;
+      if (typeof smsParsingEnabled !== "boolean") {
+        return res.status(400).json({ error: "smsParsingEnabled must be a boolean" });
+      }
+      await updateSmsParsingEnabled(req.session.userId!, smsParsingEnabled);
+      return res.json({ smsParsingEnabled });
+    } catch (err) {
+      console.error("Update SMS settings error:", err);
+      return res.status(500).json({ error: "Failed to update SMS settings" });
     }
   });
 

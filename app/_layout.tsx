@@ -4,7 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
 import {
   useFonts,
   Inter_400Regular,
@@ -16,6 +16,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider, useColors } from "@/lib/theme-context";
+import { initSmsListener, teardownSmsListener } from "@/lib/sms-processor";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,6 +37,15 @@ function AuthGate() {
       router.replace("/");
     }
   }, [user, isLoading, segments]);
+
+  // Start real-time SMS listener (Android only)
+  useEffect(() => {
+    if (!user || Platform.OS !== 'android') return;
+
+    initSmsListener().catch(() => {});
+
+    return () => teardownSmsListener();
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -101,6 +111,22 @@ function AuthGate() {
       />
       <Stack.Screen
         name="about"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="sms-expenses"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="sms-settings"
         options={{
           headerShown: false,
           presentation: "modal",

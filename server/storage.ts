@@ -1,6 +1,6 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
-import { users, expenses, budgets, monthlyBudgets, budgetSettings, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget, type BudgetSettings } from "@shared/schema";
+import { users, expenses, budgets, monthlyBudgets, budgetSettings, processedSms, pendingExpenses, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget, type BudgetSettings, type ProcessedSms, type PendingExpense } from "@shared/schema";
 
 export async function createUser(data: InsertUser & { confirmationToken?: string }): Promise<User> {
   const [user] = await db.insert(users).values(data).returning();
@@ -195,6 +195,8 @@ export async function setBudgetSettings(userId: string, data: { dailyLimit?: num
 
 export async function deleteUserAccount(userId: string): Promise<void> {
   await db.transaction(async (tx) => {
+    await tx.delete(pendingExpenses).where(eq(pendingExpenses.userId, userId));
+    await tx.delete(processedSms).where(eq(processedSms.userId, userId));
     await tx.delete(expenses).where(eq(expenses.userId, userId));
     await tx.delete(budgets).where(eq(budgets.userId, userId));
     await tx.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
@@ -222,4 +224,172 @@ export async function incrementVoiceUsage(userId: string): Promise<number> {
     .where(eq(users.id, userId))
     .returning({ voiceUsageCount: users.voiceUsageCount });
   return updated.voiceUsageCount;
+}
+
+// ─── SMS Processing ──────────────────────────────────────────────
+
+export async function bulkCheckProcessedSms(userId: string, hashes: string[]): Promise<Set<string>> {
+  if (hashes.length === 0) return new Set();
+  const rows = await db
+    .select({ smsHash: processedSms.smsHash })
+    .from(processedSms)
+    .where(and(eq(processedSms.userId, userId), inArray(processedSms.smsHash, hashes)));
+  return new Set(rows.map(r => r.smsHash));
+}
+
+export async function markSmsBulkProcessed(userId: string, items: { hash: string; timestamp?: Date }[]): Promise<void> {
+  if (items.length === 0) return;
+  await db.insert(processedSms).values(
+    items.map(item => ({
+      userId,
+      smsHash: item.hash,
+      smsTimestamp: item.timestamp ?? null,
+    }))
+  ).onConflictDoNothing();
+}
+
+// ─── Pending Expenses ────────────────────────────────────────────
+
+export async function getPendingExpensesByUser(userId: string): Promise<PendingExpense[]> {
+  return await db
+    .select()
+    .from(pendingExpenses)
+    .where(and(eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")))
+    .orderBy(desc(pendingExpenses.createdAt));
+}
+
+export async function getPendingExpenseCount(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(pendingExpenses)
+    .where(and(eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")));
+  return row?.count ?? 0;
+}
+
+export async function addPendingExpense(
+  userId: string,
+  data: { amount: number; category: string; note: string; date: string; smsSender?: string; smsBody?: string }
+): Promise<PendingExpense> {
+  const [pe] = await db.insert(pendingExpenses).values({ userId, ...data }).returning();
+  return pe;
+}
+
+export async function bulkAddPendingExpenses(
+  userId: string,
+  items: { amount: number; category: string; note: string; date: string; smsSender?: string; smsBody?: string }[]
+): Promise<PendingExpense[]> {
+  if (items.length === 0) return [];
+  return await db
+    .insert(pendingExpenses)
+    .values(items.map(item => ({ userId, ...item })))
+    .returning();
+}
+
+export async function updatePendingExpense(
+  userId: string,
+  pendingId: string,
+  data: { amount?: number; category?: string; note?: string; date?: string }
+): Promise<PendingExpense | null> {
+  const updateData: Record<string, unknown> = {};
+  if (data.amount !== undefined) updateData.amount = data.amount;
+  if (data.category !== undefined) updateData.category = data.category;
+  if (data.note !== undefined) updateData.note = data.note;
+  if (data.date !== undefined) updateData.date = data.date;
+
+  const [updated] = await db
+    .update(pendingExpenses)
+    .set(updateData)
+    .where(and(eq(pendingExpenses.id, pendingId), eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")))
+    .returning();
+  return updated || null;
+}
+
+export async function confirmPendingExpense(userId: string, pendingId: string): Promise<Expense | null> {
+  return await db.transaction(async (tx) => {
+    const [pe] = await tx
+      .select()
+      .from(pendingExpenses)
+      .where(and(eq(pendingExpenses.id, pendingId), eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")))
+      .limit(1);
+
+    if (!pe) return null;
+
+    const [expense] = await tx.insert(expenses).values({
+      userId,
+      amount: pe.amount,
+      category: pe.category,
+      note: pe.note || "",
+      date: pe.date,
+    }).returning();
+
+    await tx.update(pendingExpenses).set({ status: "confirmed" }).where(eq(pendingExpenses.id, pendingId));
+
+    return expense;
+  });
+}
+
+export async function dismissPendingExpense(userId: string, pendingId: string): Promise<boolean> {
+  const [updated] = await db
+    .update(pendingExpenses)
+    .set({ status: "dismissed" })
+    .where(and(eq(pendingExpenses.id, pendingId), eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")))
+    .returning();
+  return !!updated;
+}
+
+export async function confirmAllPending(userId: string): Promise<Expense[]> {
+  return await db.transaction(async (tx) => {
+    const pending = await tx
+      .select()
+      .from(pendingExpenses)
+      .where(and(eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")));
+
+    if (pending.length === 0) return [];
+
+    const created = await tx.insert(expenses).values(
+      pending.map(pe => ({
+        userId,
+        amount: pe.amount,
+        category: pe.category,
+        note: pe.note || "",
+        date: pe.date,
+      }))
+    ).returning();
+
+    const ids = pending.map(pe => pe.id);
+    await tx
+      .update(pendingExpenses)
+      .set({ status: "confirmed" })
+      .where(and(eq(pendingExpenses.userId, userId), inArray(pendingExpenses.id, ids)));
+
+    return created;
+  });
+}
+
+export async function dismissAllPending(userId: string): Promise<number> {
+  const result = await db
+    .update(pendingExpenses)
+    .set({ status: "dismissed" })
+    .where(and(eq(pendingExpenses.userId, userId), eq(pendingExpenses.status, "pending")))
+    .returning();
+  return result.length;
+}
+
+// ─── SMS Settings ────────────────────────────────────────────────
+
+export async function getSmsSettings(userId: string): Promise<{ smsParsingEnabled: boolean; lastSmsReadTimestamp: Date | null }> {
+  const [user] = await db
+    .select({ smsParsingEnabled: users.smsParsingEnabled, lastSmsReadTimestamp: users.lastSmsReadTimestamp })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return user || { smsParsingEnabled: false, lastSmsReadTimestamp: null };
+}
+
+export async function updateSmsParsingEnabled(userId: string, enabled: boolean): Promise<void> {
+  await db.update(users).set({ smsParsingEnabled: enabled }).where(eq(users.id, userId));
+}
+
+export async function updateLastSmsReadTimestamp(userId: string, timestamp: Date): Promise<void> {
+  await db.update(users).set({ lastSmsReadTimestamp: timestamp }).where(eq(users.id, userId));
 }
