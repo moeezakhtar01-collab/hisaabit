@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 import Animated, {
   FadeIn,
@@ -83,6 +83,7 @@ export default function VoiceExpenseScreen() {
   const colors = useColors();
   const styles = createStyles(colors);
   const { user, refreshUser } = useAuth();
+  const params = useLocalSearchParams<{ date?: string }>();
   const [state, setState] = useState<VoiceState>('idle');
   const [result, setResult] = useState<VoiceResult | null>(null);
   const [saving, setSaving] = useState(false);
@@ -107,6 +108,7 @@ export default function VoiceExpenseScreen() {
     checkPermission();
     return () => {
       if (durationInterval.current) clearInterval(durationInterval.current);
+      if (audioRecorder.isRecording) audioRecorder.stop();
     };
   }, []);
 
@@ -241,16 +243,16 @@ export default function VoiceExpenseScreen() {
 
       const data = await res.json() as VoiceResult;
 
+      const defaultDate = params.date || new Date().toISOString().split('T')[0];
+
       if (!data.expenses && (data as any).amount !== undefined) {
         const legacy = data as any;
-        const todayStr = new Date().toISOString().split('T')[0];
-        data.expenses = [{ amount: legacy.amount, category: legacy.category, note: legacy.note, date: legacy.date || todayStr }];
+        data.expenses = [{ amount: legacy.amount, category: legacy.category, note: legacy.note, date: legacy.date || defaultDate }];
       }
 
-      const todayStr = new Date().toISOString().split('T')[0];
       data.expenses = data.expenses.map(e => ({
         ...e,
-        date: e.date || todayStr,
+        date: e.date || defaultDate,
       }));
 
       setResult(data);

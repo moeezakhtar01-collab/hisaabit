@@ -591,6 +591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!category || !limit || !month) {
         return res.status(400).json({ error: "Category, limit and month are required" });
       }
+      if (typeof limit !== "number" || !Number.isInteger(limit) || limit <= 0 || limit > 100_000_000) {
+        return res.status(400).json({ error: "Limit must be a positive integer (max 100,000,000)" });
+      }
       if (!VALID_CATEGORY_KEYS.includes(category)) {
         return res.status(400).json({ error: "Invalid category" });
       }
@@ -641,6 +644,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!month || !totalLimit) {
         return res.status(400).json({ error: "Month and totalLimit are required" });
       }
+      if (typeof totalLimit !== "number" || !Number.isInteger(totalLimit) || totalLimit <= 0 || totalLimit > 100_000_000) {
+        return res.status(400).json({ error: "Total limit must be a positive integer (max 100,000,000)" });
+      }
       const budget = await setMonthlyBudgetForUser(req.session.userId!, { month, totalLimit });
       return res.json(budget);
     } catch (err) {
@@ -662,6 +668,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/budget-settings", requireAuth, async (req: Request, res: Response) => {
     try {
       const { dailyLimit, weeklyLimit } = req.body;
+      if (dailyLimit !== null && dailyLimit !== undefined && (typeof dailyLimit !== "number" || !Number.isInteger(dailyLimit) || dailyLimit <= 0 || dailyLimit > 100_000_000)) {
+        return res.status(400).json({ error: "Daily limit must be a positive integer (max 100,000,000)" });
+      }
+      if (weeklyLimit !== null && weeklyLimit !== undefined && (typeof weeklyLimit !== "number" || !Number.isInteger(weeklyLimit) || weeklyLimit <= 0 || weeklyLimit > 100_000_000)) {
+        return res.status(400).json({ error: "Weekly limit must be a positive integer (max 100,000,000)" });
+      }
       const settings = await setBudgetSettings(req.session.userId!, { dailyLimit, weeklyLimit });
       return res.json(settings);
     } catch (err) {
@@ -997,8 +1009,8 @@ Important:
       if (category && !VALID_CATEGORY_KEYS.includes(category)) {
         return res.status(400).json({ error: "Invalid category" });
       }
-      if (amount !== undefined && (typeof amount !== "number" || amount <= 0)) {
-        return res.status(400).json({ error: "Amount must be a positive number" });
+      if (amount !== undefined && (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0 || amount > 100_000_000)) {
+        return res.status(400).json({ error: "Amount must be a positive integer (max 100,000,000)" });
       }
       const updated = await updatePendingExpense(req.session.userId!, req.params.id as string, { amount, category, note, date });
       if (!updated) return res.status(404).json({ error: "Pending expense not found" });

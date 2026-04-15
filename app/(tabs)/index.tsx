@@ -446,7 +446,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
@@ -467,7 +467,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   reportBannerSub: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
   },
   smsBanner: {

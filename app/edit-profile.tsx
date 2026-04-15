@@ -54,6 +54,7 @@ export default function EditProfileScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await updateProfile(name.trim());
       setNameSuccess('Name updated successfully');
+      setTimeout(() => setNameSuccess(''), 3000);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       setNameError(e.message || 'Failed to update name');
@@ -88,6 +89,7 @@ export default function EditProfileScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const message = await changePassword(currentPassword, newPassword);
       setPasswordSuccess(message || 'Password changed successfully');
+      setTimeout(() => setPasswordSuccess(''), 3000);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
