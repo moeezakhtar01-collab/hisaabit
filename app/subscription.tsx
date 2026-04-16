@@ -58,11 +58,11 @@ export default function SubscriptionScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Remove Ads',
-      'Remove all ads permanently for Rs. 699. This is a one-time purchase.',
+      'Remove all ads permanently for Rs. 399. This is a one-time purchase.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Purchase — Rs. 699',
+          text: 'Purchase — Rs. 399',
           onPress: async () => {
             setLoading('ads');
             try {
@@ -187,7 +187,7 @@ export default function SubscriptionScreen() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.purchaseButtonText}>Remove Ads — Rs. 699</Text>
+                    <Text style={styles.purchaseButtonText}>Remove Ads — Rs. 399</Text>
                   </>
                 )}
               </Pressable>
