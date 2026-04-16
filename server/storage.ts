@@ -205,10 +205,19 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   });
 }
 
-export async function getSubscriptionInfo(userId: string): Promise<{ plan: string; voiceUsageCount: number } | null> {
+export async function getSubscriptionInfo(userId: string): Promise<{
+  plan: string;
+  voiceUsageCount: number;
+  voiceUsageResetMonth: string | null;
+  voiceCreditsPurchased: number;
+  adsRemoved: boolean;
+} | null> {
   const [user] = await db.select({
     plan: users.subscriptionPlan,
     voiceUsageCount: users.voiceUsageCount,
+    voiceUsageResetMonth: users.voiceUsageResetMonth,
+    voiceCreditsPurchased: users.voiceCreditsPurchased,
+    adsRemoved: users.adsRemoved,
   }).from(users).where(eq(users.id, userId)).limit(1);
   return user || null;
 }
@@ -224,6 +233,35 @@ export async function incrementVoiceUsage(userId: string): Promise<number> {
     .where(eq(users.id, userId))
     .returning({ voiceUsageCount: users.voiceUsageCount });
   return updated.voiceUsageCount;
+}
+
+export async function resetMonthlyVoiceUsage(userId: string, currentMonth: string): Promise<void> {
+  await db.update(users).set({
+    voiceUsageCount: 0,
+    voiceUsageResetMonth: currentMonth,
+  }).where(eq(users.id, userId));
+}
+
+export async function purchaseAdRemoval(userId: string): Promise<void> {
+  await db.update(users).set({ adsRemoved: true }).where(eq(users.id, userId));
+}
+
+export async function purchaseVoiceCredits(userId: string, amount: number): Promise<number> {
+  const [updated] = await db
+    .update(users)
+    .set({ voiceCreditsPurchased: sql`voice_credits_purchased + ${amount}` })
+    .where(eq(users.id, userId))
+    .returning({ voiceCreditsPurchased: users.voiceCreditsPurchased });
+  return updated.voiceCreditsPurchased;
+}
+
+export async function deductVoiceCredit(userId: string): Promise<number> {
+  const [updated] = await db
+    .update(users)
+    .set({ voiceCreditsPurchased: sql`GREATEST(voice_credits_purchased - 1, 0)` })
+    .where(eq(users.id, userId))
+    .returning({ voiceCreditsPurchased: users.voiceCreditsPurchased });
+  return updated.voiceCreditsPurchased;
 }
 
 // ─── SMS Processing ──────────────────────────────────────────────

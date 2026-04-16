@@ -79,15 +79,15 @@ export default function ProfileScreen() {
             <View style={styles.menuDivider} />
 
             <Pressable style={styles.menuItem} onPress={() => navigateTo('/subscription')} testID="subscription-menu-item">
-              <View style={[styles.menuIconBg, { backgroundColor: '#F59E0B15' }]}>
-                <Ionicons name="diamond-outline" size={18} color="#F59E0B" />
+              <View style={[styles.menuIconBg, { backgroundColor: '#8B5CF615' }]}>
+                <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
               </View>
-              <Text style={styles.menuLabel}>Subscription</Text>
-              <View style={styles.planBadge}>
-                <Text style={[styles.planBadgeText, user?.subscriptionPlan === 'pro' && styles.proPlanBadgeText]}>
-                  {(user?.subscriptionPlan || 'free').toUpperCase()}
-                </Text>
-              </View>
+              <Text style={styles.menuLabel}>Store</Text>
+              {!user?.adsRemoved && (
+                <View style={styles.planBadge}>
+                  <Text style={styles.planBadgeText}>ADS</Text>
+                </View>
+              )}
               <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 

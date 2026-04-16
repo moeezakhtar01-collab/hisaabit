@@ -8,6 +8,8 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { AD_BANNER_ID } from '@/lib/ad-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -15,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { router, useNavigation } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import type { ThemeColors } from '@/constants/colors';
+import { useAuth } from '@/lib/auth-context';
 import SpendingChart from '@/components/SpendingChart';
 import WeeklyOverview from '@/components/WeeklyOverview';
 import AnimatedAmount from '@/components/AnimatedAmount';
@@ -37,6 +40,7 @@ type PeriodTab = 'monthly' | 'weekly' | 'daily';
 
 export default function HomeScreen() {
   const colors = useColors();
+  const { user } = useAuth();
   const styles = createStyles(colors);
   const insets = useSafeAreaInsets();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -294,6 +298,17 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </Pressable>
         </Animated.View>
+
+        {!user?.adsRemoved && Platform.OS !== 'web' && (
+          <View style={styles.adBanner}>
+            <BannerAd
+              unitId={__DEV__ ? TestIds.ADAPTIVE_BANNER : AD_BANNER_ID}
+              size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+              requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+              onAdFailedToLoad={() => {}}
+            />
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -441,6 +456,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
     color: colors.text,
+  },
+  adBanner: {
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   reportBanner: {
     flexDirection: 'row',

@@ -8,6 +8,8 @@ interface AuthUser {
   name: string;
   subscriptionPlan: string;
   voiceUsageCount: number;
+  adsRemoved: boolean;
+  voiceCreditsPurchased: number;
 }
 
 interface AuthContextValue {

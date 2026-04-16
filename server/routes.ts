@@ -35,6 +35,10 @@ import {
   getSubscriptionInfo,
   updateSubscriptionPlan,
   incrementVoiceUsage,
+  resetMonthlyVoiceUsage,
+  purchaseAdRemoval,
+  purchaseVoiceCredits,
+  deductVoiceCredit,
   bulkCheckProcessedSms,
   markSmsBulkProcessed,
   getPendingExpensesByUser,
@@ -303,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.userId = user.id;
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0 } });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -398,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0 } });
     } catch (err) {
       console.error("Auth check error:", err);
       return res.status(500).json({ error: "Something went wrong" });
@@ -688,25 +692,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!info) {
         return res.status(404).json({ error: "User not found" });
       }
-      return res.json(info);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const voiceUsageCount = info.voiceUsageResetMonth === currentMonth ? info.voiceUsageCount : 0;
+      return res.json({
+        adsRemoved: info.adsRemoved,
+        voiceUsageCount,
+        voiceCreditsPurchased: info.voiceCreditsPurchased,
+        monthlyFreeLimit: 5,
+      });
     } catch (err) {
       console.error("Get subscription error:", err);
       return res.status(500).json({ error: "Failed to get subscription info" });
     }
   });
 
-  app.put("/api/subscription", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/purchase", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { plan } = req.body;
-      if (!plan || !['free', 'pro'].includes(plan)) {
-        return res.status(400).json({ error: "Invalid plan" });
+      const { action } = req.body;
+      if (action === "remove_ads") {
+        await purchaseAdRemoval(req.session.userId!);
+        return res.json({ success: true, message: "Ads removed successfully" });
+      } else if (action === "buy_voice_credits") {
+        const newBalance = await purchaseVoiceCredits(req.session.userId!, 50);
+        return res.json({ success: true, message: "50 voice credits added", voiceCreditsPurchased: newBalance });
+      } else {
+        return res.status(400).json({ error: "Invalid action. Use 'remove_ads' or 'buy_voice_credits'" });
       }
-      await updateSubscriptionPlan(req.session.userId!, plan);
-      const info = await getSubscriptionInfo(req.session.userId!);
-      return res.json(info);
     } catch (err) {
-      console.error("Update subscription error:", err);
-      return res.status(500).json({ error: "Failed to update subscription" });
+      console.error("Purchase error:", err);
+      return res.status(500).json({ error: "Purchase failed. Please try again." });
     }
   });
 
@@ -721,11 +735,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const subInfo = await getSubscriptionInfo(req.session.userId);
-      const plan = subInfo?.plan || 'free';
       const voiceUsageCount = subInfo?.voiceUsageCount || 0;
+      const voiceCreditsPurchased = subInfo?.voiceCreditsPurchased || 0;
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const MONTHLY_FREE_LIMIT = 5;
 
-      if (plan === 'free' && voiceUsageCount >= 10) {
-        return res.status(403).json({ error: "You've used all 10 free AI voice entries. Upgrade to Pro for unlimited voice expense logging.", code: "VOICE_LIMIT_REACHED" });
+      // Reset monthly counter if new month
+      let effectiveUsageCount = voiceUsageCount;
+      if (subInfo?.voiceUsageResetMonth !== currentMonth) {
+        await resetMonthlyVoiceUsage(req.session.userId!, currentMonth);
+        effectiveUsageCount = 0;
+      }
+
+      // Check limits: free monthly uses first, then purchased credits
+      const hasFreeMontlyUses = effectiveUsageCount < MONTHLY_FREE_LIMIT;
+      const hasPurchasedCredits = voiceCreditsPurchased > 0;
+
+      if (!hasFreeMontlyUses && !hasPurchasedCredits) {
+        return res.status(403).json({
+          error: "You've used all 5 free voice entries this month. Buy more credits to continue.",
+          code: "VOICE_LIMIT_REACHED",
+          voiceUsageCount: effectiveUsageCount,
+          voiceCreditsPurchased: 0,
+          monthlyFreeLimit: MONTHLY_FREE_LIMIT,
+        });
       }
 
       const apiKey = process.env.OPENAI_API_KEY;
@@ -826,19 +859,19 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
         };
       });
 
-      let finalExpenses = validatedExpenses;
-      if (plan === 'free') {
-        finalExpenses = validatedExpenses.slice(0, 1);
-      }
+      const finalExpenses = validatedExpenses;
 
       if (finalExpenses.length > 0 && finalExpenses.some(e => e.amount > 0)) {
-        await incrementVoiceUsage(req.session.userId!);
+        if (hasFreeMontlyUses) {
+          await incrementVoiceUsage(req.session.userId!);
+        } else {
+          await deductVoiceCredit(req.session.userId!);
+        }
       }
 
       return res.json({
         transcript,
         expenses: finalExpenses,
-        plan,
       });
     } catch (err: any) {
       console.error("Voice expense error:", err);

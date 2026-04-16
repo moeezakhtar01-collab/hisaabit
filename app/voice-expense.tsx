@@ -32,8 +32,10 @@ import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
+import { trackSaveAndCheckInterstitial, AD_INTERSTITIAL_ID } from '@/lib/ad-manager';
+import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 
-const FREE_VOICE_LIMIT = 10;
+const FREE_VOICE_LIMIT = 5;
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
 
@@ -95,9 +97,9 @@ export default function VoiceExpenseScreen() {
   const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
   const [datePickerIndex, setDatePickerIndex] = useState<number | null>(null);
 
-  const currentPlan = user?.subscriptionPlan || 'free';
   const voiceUsageCount = user?.voiceUsageCount || 0;
-  const isLimitReached = currentPlan === 'free' && voiceUsageCount >= FREE_VOICE_LIMIT;
+  const voiceCreditsPurchased = user?.voiceCreditsPurchased || 0;
+  const isLimitReached = voiceUsageCount >= FREE_VOICE_LIMIT && voiceCreditsPurchased <= 0;
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -228,12 +230,13 @@ export default function VoiceExpenseScreen() {
         const errData = await res.json().catch(() => ({}));
         if ((errData as any).code === 'VOICE_LIMIT_REACHED') {
           setState('idle');
+          await refreshUser();
           Alert.alert(
             'Voice Limit Reached',
-            'You\'ve used all 10 free AI voice entries. Upgrade to Pro for unlimited voice expense logging.',
+            'You\'ve used all 5 free voice entries this month. Buy credits to continue.',
             [
               { text: 'Cancel', style: 'cancel' },
-              { text: 'View Plans', onPress: () => { router.back(); router.push('/subscription' as any); } },
+              { text: 'Buy Credits', onPress: () => { router.back(); router.push('/subscription' as any); } },
             ]
           );
           return;
@@ -286,6 +289,20 @@ export default function VoiceExpenseScreen() {
         });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      if (!user?.adsRemoved && Platform.OS !== 'web') {
+        try {
+          const shouldShow = await trackSaveAndCheckInterstitial();
+          if (shouldShow) {
+            const interstitial = InterstitialAd.createForAdRequest(
+              __DEV__ ? TestIds.INTERSTITIAL : AD_INTERSTITIAL_ID
+            );
+            interstitial.addAdEventListener(AdEventType.LOADED, () => interstitial.show());
+            interstitial.load();
+          }
+        } catch {}
+      }
+
       router.back();
     } catch {
       Alert.alert('Error', 'Failed to save expenses.');
@@ -421,18 +438,18 @@ export default function VoiceExpenseScreen() {
                   <View style={styles.limitReachedIcon}>
                     <Ionicons name="lock-closed" size={36} color={colors.textSecondary} />
                   </View>
-                  <Text style={styles.instructionTitle}>Voice Limit Reached</Text>
+                  <Text style={styles.instructionTitle}>Monthly Limit Reached</Text>
                   <Text style={styles.instructionText}>
-                    You've used all {FREE_VOICE_LIMIT} free AI voice entries.{'\n'}
-                    Upgrade to Pro for unlimited access.
+                    You've used all {FREE_VOICE_LIMIT} free voice entries this month.{'\n'}
+                    Buy credits to keep using voice input.
                   </Text>
                   <Pressable
                     onPress={() => { router.back(); router.push('/subscription' as any); }}
                     style={({ pressed }) => [styles.upgradePromptButton, pressed && { opacity: 0.9 }]}
                     testID="upgrade-from-voice"
                   >
-                    <Ionicons name="flash" size={18} color="#fff" />
-                    <Text style={styles.upgradePromptText}>View Plans</Text>
+                    <Ionicons name="diamond-outline" size={18} color="#fff" />
+                    <Text style={styles.upgradePromptText}>Buy Credits</Text>
                   </Pressable>
                 </>
               ) : (
@@ -440,19 +457,15 @@ export default function VoiceExpenseScreen() {
                   <Text style={styles.instructionTitle}>Tap to Record</Text>
                   <Text style={styles.instructionText}>
                     Speak naturally about your expenses.{'\n'}
-                    {currentPlan === 'pro'
-                      ? 'You can mention multiple expenses at once!'
-                      : 'One expense per recording on Free plan.'}
+                    You can mention multiple expenses at once!
                   </Text>
 
-                  {currentPlan === 'free' && (
-                    <View style={styles.usageHint}>
-                      <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
-                      <Text style={styles.usageHintText}>
-                        {voiceUsageCount} of {FREE_VOICE_LIMIT} free entries used
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.usageHint}>
+                    <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
+                    <Text style={styles.usageHintText}>
+                      {voiceUsageCount} of {FREE_VOICE_LIMIT} free this month{voiceCreditsPurchased > 0 ? ` \u2022 ${voiceCreditsPurchased} credits` : ''}
+                    </Text>
+                  </View>
 
                   <Pressable
                     onPress={startRecording}

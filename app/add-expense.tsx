@@ -20,6 +20,9 @@ import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
 import CategoryPill from '@/components/CategoryPill';
 import { addExpense, updateExpense, CATEGORIES, formatPKR } from '@/lib/storage';
+import { useAuth } from '@/lib/auth-context';
+import { trackSaveAndCheckInterstitial, AD_INTERSTITIAL_ID } from '@/lib/ad-manager';
+import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000, 2500, 5000];
 
@@ -56,6 +59,7 @@ export default function AddExpenseScreen() {
   const colors = useColors();
   const styles = createStyles(colors);
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{
     editId?: string;
     editAmount?: string;
@@ -129,6 +133,21 @@ export default function AddExpenseScreen() {
           date: dateStr,
         });
       }
+
+      // Show interstitial ad every 4th save (if ads not removed)
+      if (!user?.adsRemoved && Platform.OS !== 'web') {
+        try {
+          const shouldShow = await trackSaveAndCheckInterstitial();
+          if (shouldShow) {
+            const interstitial = InterstitialAd.createForAdRequest(
+              __DEV__ ? TestIds.INTERSTITIAL : AD_INTERSTITIAL_ID
+            );
+            interstitial.addAdEventListener(AdEventType.LOADED, () => interstitial.show());
+            interstitial.load();
+          }
+        } catch {}
+      }
+
       router.back();
     } catch {
       Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'save'} expense. Please try again.`);
