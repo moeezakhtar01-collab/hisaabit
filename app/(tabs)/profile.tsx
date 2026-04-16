@@ -119,15 +119,19 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
-            <View style={styles.menuDivider} />
+            {Platform.OS === 'android' && (
+              <>
+                <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItem} onPress={() => navigateTo('/sms-settings')} testID="sms-settings-menu-item">
-              <View style={[styles.menuIconBg, { backgroundColor: '#10B98115' }]}>
-                <Ionicons name="chatbox-ellipses-outline" size={18} color="#10B981" />
-              </View>
-              <Text style={styles.menuLabel}>SMS Expenses</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.border} />
-            </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/sms-settings')} testID="sms-settings-menu-item">
+                  <View style={[styles.menuIconBg, { backgroundColor: '#10B98115' }]}>
+                    <Ionicons name="chatbox-ellipses-outline" size={18} color="#10B981" />
+                  </View>
+                  <Text style={styles.menuLabel}>SMS Expenses</Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.border} />
+                </Pressable>
+              </>
+            )}
 
             <View style={styles.menuDivider} />
 
