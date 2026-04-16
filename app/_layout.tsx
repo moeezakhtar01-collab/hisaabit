@@ -134,6 +134,14 @@ function AuthGate() {
         }}
       />
       <Stack.Screen
+        name="subscription"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
         name="period-expenses"
         options={{
           headerShown: false,
