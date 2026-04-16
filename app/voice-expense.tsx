@@ -32,8 +32,7 @@ import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
-import { trackSaveAndCheckInterstitial, AD_INTERSTITIAL_ID } from '@/lib/ad-manager';
-import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { maybeShowInterstitial } from '@/lib/ad-manager';
 
 const FREE_VOICE_LIMIT = 5;
 
@@ -290,18 +289,7 @@ export default function VoiceExpenseScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      if (!user?.adsRemoved && Platform.OS !== 'web') {
-        try {
-          const shouldShow = await trackSaveAndCheckInterstitial();
-          if (shouldShow) {
-            const interstitial = InterstitialAd.createForAdRequest(
-              __DEV__ ? TestIds.INTERSTITIAL : AD_INTERSTITIAL_ID
-            );
-            interstitial.addAdEventListener(AdEventType.LOADED, () => interstitial.show());
-            interstitial.load();
-          }
-        } catch {}
-      }
+      await maybeShowInterstitial(user?.adsRemoved);
 
       router.back();
     } catch {

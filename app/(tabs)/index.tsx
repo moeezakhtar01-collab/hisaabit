@@ -8,8 +8,7 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
-import { AD_BANNER_ID } from '@/lib/ad-manager';
+import { AD_BANNER_ID, ADS_AVAILABLE, getBannerAdComponent, getBannerAdSize, getTestIds } from '@/lib/ad-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -299,16 +298,22 @@ export default function HomeScreen() {
           </Pressable>
         </Animated.View>
 
-        {!user?.adsRemoved && Platform.OS !== 'web' && (
-          <View style={styles.adBanner}>
-            <BannerAd
-              unitId={__DEV__ ? TestIds.ADAPTIVE_BANNER : AD_BANNER_ID}
-              size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-              requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-              onAdFailedToLoad={() => {}}
-            />
-          </View>
-        )}
+        {!user?.adsRemoved && Platform.OS !== 'web' && ADS_AVAILABLE && (() => {
+          const BannerAd = getBannerAdComponent();
+          const BannerAdSize = getBannerAdSize();
+          const TestIds = getTestIds();
+          if (!BannerAd || !BannerAdSize) return null;
+          return (
+            <View style={styles.adBanner}>
+              <BannerAd
+                unitId={__DEV__ ? TestIds.ADAPTIVE_BANNER : AD_BANNER_ID}
+                size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                onAdFailedToLoad={() => {}}
+              />
+            </View>
+          );
+        })()}
       </ScrollView>
     </View>
   );

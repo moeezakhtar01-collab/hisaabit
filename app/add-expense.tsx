@@ -21,8 +21,7 @@ import { type ThemeColors } from '@/constants/colors';
 import CategoryPill from '@/components/CategoryPill';
 import { addExpense, updateExpense, CATEGORIES, formatPKR } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
-import { trackSaveAndCheckInterstitial, AD_INTERSTITIAL_ID } from '@/lib/ad-manager';
-import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { maybeShowInterstitial } from '@/lib/ad-manager';
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000, 2500, 5000];
 
@@ -135,18 +134,7 @@ export default function AddExpenseScreen() {
       }
 
       // Show interstitial ad every 4th save (if ads not removed)
-      if (!user?.adsRemoved && Platform.OS !== 'web') {
-        try {
-          const shouldShow = await trackSaveAndCheckInterstitial();
-          if (shouldShow) {
-            const interstitial = InterstitialAd.createForAdRequest(
-              __DEV__ ? TestIds.INTERSTITIAL : AD_INTERSTITIAL_ID
-            );
-            interstitial.addAdEventListener(AdEventType.LOADED, () => interstitial.show());
-            interstitial.load();
-          }
-        } catch {}
-      }
+      await maybeShowInterstitial(user?.adsRemoved);
 
       router.back();
     } catch {
