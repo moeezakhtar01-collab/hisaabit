@@ -75,9 +75,35 @@ export default function AboutScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.card}>
-          <Text style={styles.sectionTitle}>Built With</Text>
-          <Text style={styles.builtWithText}>Made with care for Pakistani households</Text>
-          <Text style={styles.builtWithSubtext}>Helping families manage their finances better</Text>
+          <Text style={styles.sectionTitle}>How It Works</Text>
+          <View style={styles.featureRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>1</Text>
+            </View>
+            <Text style={styles.featureLabel}>Add expenses manually or with your voice</Text>
+          </View>
+          <View style={styles.featureRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>2</Text>
+            </View>
+            <Text style={styles.featureLabel}>Set daily, weekly & monthly budgets</Text>
+          </View>
+          <View style={styles.featureRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>3</Text>
+            </View>
+            <Text style={styles.featureLabel}>Track spending patterns with charts</Text>
+          </View>
+          <View style={styles.featureRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>4</Text>
+            </View>
+            <Text style={styles.featureLabel}>Export PDF & CSV reports anytime</Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.madeInPakistan}>
+          <Text style={styles.madeInText}>Made with care for Pakistani households</Text>
         </Animated.View>
       </ScrollView>
     </View>
@@ -179,12 +205,24 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
-  builtWithText: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-    color: colors.text,
+  stepBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  builtWithSubtext: {
+  stepBadgeText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: colors.primary,
+  },
+  madeInPakistan: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  madeInText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
