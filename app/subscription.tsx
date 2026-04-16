@@ -400,12 +400,13 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   purchasedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     backgroundColor: colors.primary + '10',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   purchasedText: {
     fontSize: 15,
