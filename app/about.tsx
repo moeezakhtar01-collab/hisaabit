@@ -103,7 +103,7 @@ export default function AboutScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.madeInPakistan}>
-          <Text style={styles.madeInText}>Made with care for Pakistan</Text>
+          <Text style={styles.madeInText}>Hisaabit v1.0.0</Text>
         </Animated.View>
       </ScrollView>
     </View>
