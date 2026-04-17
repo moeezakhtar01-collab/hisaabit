@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
@@ -207,6 +206,7 @@ export default function HistoryScreen() {
     if (groups.length > 0) {
       setExpandedPeriod(groups[0].key);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleTabChange = (tab: TabType) => {

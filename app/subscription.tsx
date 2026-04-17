@@ -17,7 +17,7 @@ import { router } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import type { lightColors } from '@/constants/colors';
-import { getApiUrl, apiRequest } from '@/lib/query-client';
+import { apiRequest } from '@/lib/query-client';
 
 const MONTHLY_FREE_LIMIT = 5;
 

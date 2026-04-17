@@ -36,6 +36,7 @@ function AuthGate() {
     } else if (user && inAuth) {
       router.replace("/");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, segments]);
 
   // Start real-time SMS listener (Android only)

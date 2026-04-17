@@ -75,7 +75,7 @@ export default function ForgotPasswordScreen() {
             </View>
             <Text style={styles.sentTitle}>Check Your Email</Text>
             <Text style={styles.sentDesc}>
-              If an account exists for {email}, you'll receive password reset instructions shortly.
+              If an account exists for {email}, you&apos;ll receive password reset instructions shortly.
             </Text>
             <Pressable
               onPress={() => router.replace('/login')}
@@ -91,7 +91,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.form}>
             <Text style={styles.formTitle}>Reset Password</Text>
             <Text style={styles.formDesc}>
-              Enter the email address you used to create your account and we'll send you instructions to reset your password.
+              Enter the email address you used to create your account and we&apos;ll send you instructions to reset your password.
             </Text>
 
             {error ? (

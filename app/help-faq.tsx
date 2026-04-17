@@ -119,7 +119,7 @@ export default function HelpFAQScreen() {
             <View style={styles.infoRow}>
               <Ionicons name="mail-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
-                Still have questions? Reach out to us at support@hisaab.app and we'll get back to you as soon as possible.
+                Still have questions? Reach out to us at support@hisaab.app and we&apos;ll get back to you as soon as possible.
               </Text>
             </View>
           </View>

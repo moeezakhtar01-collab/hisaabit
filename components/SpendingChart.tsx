@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
-  FadeIn,
   useSharedValue,
   useAnimatedProps,
   withDelay,
@@ -62,6 +61,7 @@ function AnimatedSlice({ d, color, index, dimmed }: { d: string; color: string; 
       index * 150,
       withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) }),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const targetOpacity = dimmed ? 0.25 : 1;

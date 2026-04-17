@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, SlideInRight } from 'react-native-reanimated';
+import Animated, { FadeOut, SlideInRight } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
 import { Expense, getCategoryLabel, getCategoryIcon, formatPKR, formatDate } from '@/lib/storage';

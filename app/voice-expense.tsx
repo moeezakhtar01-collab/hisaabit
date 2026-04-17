@@ -30,7 +30,7 @@ import Animated, {
 import { useColors } from '@/lib/theme-context';
 import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
-import { addExpense, CATEGORIES, formatPKR, getCategoryLabel, getCategoryIcon } from '@/lib/storage';
+import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
 import { maybeShowInterstitial } from '@/lib/ad-manager';
 
@@ -109,8 +109,13 @@ export default function VoiceExpenseScreen() {
     checkPermission();
     return () => {
       if (durationInterval.current) clearInterval(durationInterval.current);
-      if (audioRecorder.isRecording) audioRecorder.stop();
+      try {
+        if (audioRecorder.isRecording) audioRecorder.stop();
+      } catch {
+        // Native recorder already released on unmount — ignore
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkPermission = async () => {
@@ -428,7 +433,7 @@ export default function VoiceExpenseScreen() {
                   </View>
                   <Text style={styles.instructionTitle}>Monthly Limit Reached</Text>
                   <Text style={styles.instructionText}>
-                    You've used all {FREE_VOICE_LIMIT} free voice entries this month.{'\n'}
+                    You&apos;ve used all {FREE_VOICE_LIMIT} free voice entries this month.{'\n'}
                     Buy credits to keep using voice input.
                   </Text>
                   <Pressable
@@ -511,7 +516,7 @@ export default function VoiceExpenseScreen() {
           <Animated.View entering={FadeInDown.duration(400)} style={styles.resultContainer}>
             <View style={styles.transcriptCard}>
               <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.textSecondary} />
-              <Text style={styles.transcriptText}>"{result.transcript}"</Text>
+              <Text style={styles.transcriptText}>&quot;{result.transcript}&quot;</Text>
             </View>
 
             {result.expenses.length > 1 && (

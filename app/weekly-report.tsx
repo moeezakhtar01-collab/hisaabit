@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   StatusBar,
-  Dimensions,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -169,7 +168,6 @@ function CategorySlide({ data }: { data: WeeklyReportData }) {
 function BehaviorSlide({ data }: { data: WeeklyReportData }) {
   const accent = '#3B82F6';
   const hasWeekend = data.weekendTotal > 0;
-  const hasWeekday = data.weekdayTotal > 0;
   const maxVal = Math.max(data.weekdayTotal, data.weekendTotal, 1);
 
   return (
@@ -329,7 +327,7 @@ function ClosingSlide({
   return (
     <View style={s.center}>
       <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={s.closingTitle}>
-        That's your hisaab!
+        That&apos;s your hisaab!
       </Animated.Text>
       <Animated.Text entering={FadeIn.delay(600).duration(400)} style={s.subtext}>
         Ready for next week?

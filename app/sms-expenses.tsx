@@ -15,12 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
 import CategoryPill from '@/components/CategoryPill';
 import PendingExpenseCard from '@/components/PendingExpenseCard';
-import { CATEGORIES, formatPKR } from '@/lib/storage';
+import { CATEGORIES } from '@/lib/storage';
 import {
   PendingExpense,
   getPendingSmsExpenses,
