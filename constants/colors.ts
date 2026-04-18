@@ -42,19 +42,22 @@ export const darkColors: ThemeColors = {
   primaryDark: '#1E3A5F',
   accent: '#34D399',
   accentLight: '#6EE7B7',
-  background: '#0F1729',
-  card: '#1A2332',
-  surface: '#243044',
-  text: '#F1F5F9',
-  textSecondary: '#94A3B8',
-  border: '#2D3B4F',
+  // Neutral gray palette (R = G = B, no blue cast). Was the Tailwind slate
+  // family, which read as blue-tinted. Hierarchy preserved:
+  // background < card < surface < border.
+  background: '#171717',
+  card: '#232323',
+  surface: '#2E2E2E',
+  text: '#F5F5F5',
+  textSecondary: '#A3A3A3',
+  border: '#3A3A3A',
   danger: '#EF4444',
   dangerLight: '#3B1414',
   success: '#10B981',
   warning: '#F59E0B',
   warningLight: '#3B2F0F',
   categories,
-  tabIconDefault: '#64748B',
+  tabIconDefault: '#737373',
   tabIconSelected: '#3B82F6',
 };
 
