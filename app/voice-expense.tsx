@@ -232,8 +232,13 @@ export default function VoiceExpenseScreen() {
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if ((errData as any).code === 'VOICE_LIMIT_REACHED') {
+        // Parse JSON error first; fall back to raw text so we surface
+        // HTML/plain-text errors (e.g. proxy 502, Railway cold-start page).
+        const rawBody = await res.text().catch(() => '');
+        let errData: any = {};
+        try { errData = rawBody ? JSON.parse(rawBody) : {}; } catch { /* not JSON */ }
+
+        if (errData.code === 'VOICE_LIMIT_REACHED') {
           setState('idle');
           await refreshUser();
           if (STORE_ENABLED) {
@@ -254,7 +259,10 @@ export default function VoiceExpenseScreen() {
           }
           return;
         }
-        throw new Error((errData as any).error || 'Failed to process voice');
+        // Include HTTP status + server body snippet so the user can tell us
+        // exactly what went wrong without needing server logs.
+        const serverMsg = errData.error || (rawBody ? rawBody.slice(0, 120) : '');
+        throw new Error(`[${res.status}] ${serverMsg || 'Failed to process voice'}`);
       }
 
       const data = await res.json() as VoiceResult;

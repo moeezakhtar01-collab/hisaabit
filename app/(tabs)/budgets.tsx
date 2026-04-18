@@ -409,7 +409,9 @@ export default function BudgetsScreen() {
                     </View>
                     <View style={styles.periodStatDivider} />
                     <View style={styles.periodStatItem}>
-                      <Text style={styles.periodStatLabel}>Remaining</Text>
+                      <Text style={[styles.periodStatLabel, budgetSettings.dailyLimit - todaySpent < 0 && { color: colors.danger }]}>
+                        {budgetSettings.dailyLimit - todaySpent >= 0 ? 'Remaining' : 'Over'}
+                      </Text>
                       <Text style={[styles.periodStatValue, { color: budgetSettings.dailyLimit - todaySpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(Math.abs(budgetSettings.dailyLimit - todaySpent))}
                       </Text>
@@ -449,7 +451,9 @@ export default function BudgetsScreen() {
                     </View>
                     <View style={styles.periodStatDivider} />
                     <View style={styles.periodStatItem}>
-                      <Text style={styles.periodStatLabel}>Remaining</Text>
+                      <Text style={[styles.periodStatLabel, budgetSettings.weeklyLimit - weekSpent < 0 && { color: colors.danger }]}>
+                        {budgetSettings.weeklyLimit - weekSpent >= 0 ? 'Remaining' : 'Over'}
+                      </Text>
                       <Text style={[styles.periodStatValue, { color: budgetSettings.weeklyLimit - weekSpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(Math.abs(budgetSettings.weeklyLimit - weekSpent))}
                       </Text>
