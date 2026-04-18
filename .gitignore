@@ -43,3 +43,7 @@ yarn-error.*
 
 .env
 .claude/
+
+# Database dumps (never commit — contain password hashes and user PII)
+*-backup.sql
+*.dump
