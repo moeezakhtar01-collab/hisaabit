@@ -875,7 +875,17 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
       });
     } catch (err: any) {
       console.error("Voice expense error:", err);
-      return res.status(500).json({ error: "Failed to process voice note. Please try again." });
+      // Surface the underlying error class + message to the client so we can
+      // diagnose issues on device without needing Railway logs. We avoid
+      // leaking stack traces or full OpenAI response bodies — just enough
+      // signal: "OpenAI: 401 Invalid API key", "ENOENT rename …", etc.
+      const name = err?.name || "Error";
+      const message = typeof err?.message === "string" ? err.message : String(err);
+      const openaiStatus = err?.status ? ` [openai-status:${err.status}]` : "";
+      const code = err?.code ? ` [${err.code}]` : "";
+      return res.status(500).json({
+        error: `Failed to process voice note: ${name}${code}${openaiStatus}: ${message.slice(0, 200)}`,
+      });
     }
   });
 
