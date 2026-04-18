@@ -38,7 +38,6 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "./plugins/withSmsPermission",
       [
         "react-native-google-mobile-ads",
         {

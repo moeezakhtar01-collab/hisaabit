@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
+import { SMS_ENABLED } from '@/lib/feature-flags';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -119,7 +120,7 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
-            {Platform.OS === 'android' && (
+            {SMS_ENABLED && Platform.OS === 'android' && (
               <>
                 <View style={styles.menuDivider} />
 

@@ -252,7 +252,6 @@ export default function SubscriptionScreen() {
               'Daily, weekly & monthly budgets',
               'Spending charts & history',
               'PDF & CSV reports',
-              'SMS auto-capture (Android)',
               '5 AI voice entries per month',
               'Multiple expenses per recording',
             ].map((feature, i) => (

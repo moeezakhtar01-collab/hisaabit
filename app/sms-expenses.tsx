@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
@@ -30,6 +30,7 @@ import {
   dismissAllPending,
   updatePendingExpense,
 } from '@/lib/sms-storage';
+import { SMS_ENABLED } from '@/lib/feature-flags';
 
 export default function SmsExpensesScreen() {
   const colors = useColors();
@@ -59,6 +60,10 @@ export default function SmsExpensesScreen() {
     await loadPending();
     setRefreshing(false);
   }, [loadPending]);
+
+  if (!SMS_ENABLED) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const handleConfirm = async (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

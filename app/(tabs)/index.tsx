@@ -34,6 +34,7 @@ import {
   getTotalExpenses,
 } from '@/lib/storage';
 import { getPendingCount } from '@/lib/sms-storage';
+import { SMS_ENABLED } from '@/lib/feature-flags';
 
 type PeriodTab = 'monthly' | 'weekly' | 'daily';
 
@@ -53,7 +54,7 @@ export default function HomeScreen() {
     const [all, mb, pendingCt] = await Promise.all([
       getExpenses(),
       getMonthlyBudget(currentMonth),
-      getPendingCount(),
+      SMS_ENABLED ? getPendingCount() : Promise.resolve(0),
     ]);
     setExpenses(all);
     setMonthlyBudgetState(mb);
@@ -197,7 +198,7 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {smsPendingCount > 0 && (
+        {SMS_ENABLED && smsPendingCount > 0 && (
           <Animated.View entering={FadeInDown.delay(125).duration(400)}>
             <Pressable
               onPress={() => {

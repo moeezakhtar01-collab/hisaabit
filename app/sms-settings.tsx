@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
@@ -21,6 +21,7 @@ import { requestSmsPermission, hasSmsPermission } from '@/lib/sms-reader';
 import { getSmsSettings, updateSmsSettings, getPendingCount } from '@/lib/sms-storage';
 import { setSmsEnabledCache } from '@/lib/sms-processor';
 import { isSmsListenerActive } from '@/lib/sms-listener';
+import { SMS_ENABLED } from '@/lib/feature-flags';
 
 export default function SmsSettingsScreen() {
   const colors = useColors();
@@ -49,6 +50,10 @@ export default function SmsSettingsScreen() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  if (!SMS_ENABLED) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const handleToggle = async (value: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

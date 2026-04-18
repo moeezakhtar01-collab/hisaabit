@@ -17,6 +17,7 @@ import { queryClient } from "@/lib/query-client";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider, useColors } from "@/lib/theme-context";
 import { initSmsListener, teardownSmsListener } from "@/lib/sms-processor";
+import { SMS_ENABLED } from "@/lib/feature-flags";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -39,8 +40,9 @@ function AuthGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, segments]);
 
-  // Start real-time SMS listener (Android only)
+  // Start real-time SMS listener (Android only, flagged off for v1)
   useEffect(() => {
+    if (!SMS_ENABLED) return;
     if (!user || Platform.OS !== 'android') return;
 
     initSmsListener().catch(() => {});
