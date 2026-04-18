@@ -50,7 +50,7 @@ function getAccent(index: number, data: WeeklyReportData, colors: typeof lightCo
 function HookSlide({ weekLabel }: { weekLabel: string }) {
   const colors = useColors();
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text
         entering={FadeInDown.delay(200).duration(600)}
         style={s.hookSmall}
@@ -61,7 +61,7 @@ function HookSlide({ weekLabel }: { weekLabel: string }) {
         entering={FadeInDown.delay(400).duration(600)}
         style={s.hookBig}
       >
-        weekly Hisaab
+        Weekly Hisaab
       </Animated.Text>
       <Animated.Text
         entering={FadeIn.delay(800).duration(600)}
@@ -92,7 +92,7 @@ function TotalSlide({ data }: { data: WeeklyReportData }) {
         : '\uD83D\uDE10';
 
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={s.slideLabel}>
         You spent
       </Animated.Text>
@@ -138,7 +138,7 @@ function CategorySlide({ data }: { data: WeeklyReportData }) {
     colors.categories.general;
 
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={s.slideLabel}>
         Your biggest expense
       </Animated.Text>
@@ -171,7 +171,7 @@ function BehaviorSlide({ data }: { data: WeeklyReportData }) {
   const maxVal = Math.max(data.weekdayTotal, data.weekendTotal, 1);
 
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={[s.behaviorTitle, { color: accent }]}>
         {hasWeekend && data.weekendMultiplier >= 1.5
           ? 'Weekends hit different...'
@@ -228,7 +228,7 @@ function PersonalitySlide({ data }: { data: WeeklyReportData }) {
   const colors = useColors();
   const p = data.personality;
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={s.slideLabel}>
         You are
       </Animated.Text>
@@ -251,7 +251,7 @@ function FunSlide({ data }: { data: WeeklyReportData }) {
   const accent = '#EC4899';
 
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={[s.slideLabel, { color: accent }]}>
         Your tiniest kharcha
       </Animated.Text>
@@ -277,7 +277,7 @@ function AwarenessSlide({ data }: { data: WeeklyReportData }) {
   const colors = useColors();
   const perfect = data.daysLogged >= 7;
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeIn.delay(100).duration(400)} style={s.slideLabel}>
         You logged
       </Animated.Text>
@@ -325,7 +325,7 @@ function ClosingSlide({
   onDetails: () => void;
 }) {
   return (
-    <View style={s.center}>
+    <View style={s.center} pointerEvents="box-none">
       <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={s.closingTitle}>
         That&apos;s your hisaab!
       </Animated.Text>
@@ -444,7 +444,7 @@ export default function WeeklyReportScreen() {
   if (loading || !data) {
     return (
       <View style={[s.screen, { paddingTop: insets.top }]}>
-        <View style={s.center}>
+        <View style={s.center} pointerEvents="box-none">
           <Text style={s.loadingText}>Loading your hisaab...</Text>
         </View>
       </View>
@@ -458,7 +458,7 @@ export default function WeeklyReportScreen() {
         <Pressable style={[s.closeBtn, { top: insets.top + 12 }]} onPress={close}>
           <Ionicons name="close" size={28} color={TEXT_SOFT} />
         </Pressable>
-        <View style={s.center}>
+        <View style={s.center} pointerEvents="box-none">
           <Text style={{ fontSize: 48, marginBottom: 16 }}>{'\uD83D\uDCCA'}</Text>
           <Text style={s.emptyTitle}>Not enough data yet</Text>
           <Text style={s.emptySubtext}>
@@ -545,7 +545,12 @@ export default function WeeklyReportScreen() {
 
       {/* Slide content (above tap areas so buttons work) */}
       <View style={s.slideWrap} pointerEvents="box-none">
-        <Animated.View key={index} entering={FadeIn.duration(300)} style={{ flex: 1 }}>
+        <Animated.View
+          key={index}
+          entering={FadeIn.duration(300)}
+          style={{ flex: 1 }}
+          pointerEvents="box-none"
+        >
           {renderSlide()}
         </Animated.View>
       </View>
