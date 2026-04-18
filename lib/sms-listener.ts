@@ -1,72 +1,44 @@
 import { Platform } from 'react-native';
-import { isBankTransactionSms } from './sms-bank-filter';
-import { processSmsMessages } from './sms-storage';
-
-type Subscription = { remove: () => void };
-
-let activeSubscription: Subscription | null = null;
+import { SMS_ENABLED } from '@/lib/feature-flags';
 
 /**
- * Start listening for incoming SMS messages in real-time.
- * When a bank transaction SMS is detected, it's immediately sent
- * to the server for AI parsing and pending expense creation.
+ * SMS Listener — STUB for v1 Play Store submission.
  *
- * Uses a BroadcastReceiver under the hood — works while the app
- * is in the foreground or background.
+ * The real implementation has been temporarily removed because:
+ *   1. The `react-native-android-sms-listener` npm package is uninstalled
+ *      in v1. Its AndroidManifest.xml declares <uses-permission
+ *      android:name="android.permission.RECEIVE_SMS"/>, and Expo's
+ *      autolinking merges that permission into our final APK manifest.
+ *      Once RECEIVE_SMS is in the manifest, Play treats the app as an
+ *      SMS-using app and requires a Permissions Declaration (restricted
+ *      use case form) — which we are deferring until v1.1.
+ *   2. SMS_ENABLED is gated off in lib/feature-flags.ts, so all callsites
+ *      (_layout.tsx init, sms-settings.tsx UI, sms-expenses.tsx list)
+ *      already early-return before invoking any function here.
  *
- * @param onExpenseDetected Optional callback when a new pending expense is created.
+ * To restore SMS listening in v1.1 (or swap to a notification-listener):
+ *   1. `npm install react-native-android-sms-listener` (or chosen alternative)
+ *   2. Add a config plugin back to app.json that writes RECEIVE_SMS into
+ *      AndroidManifest (see plugins/withSmsPermission.js — still in repo)
+ *   3. Restore this file from git: `git show 7ec1b3b:lib/sms-listener.ts`
+ *   4. Flip SMS_ENABLED to true in lib/feature-flags.ts
+ *   5. Submit the SMS Permissions Declaration in Play Console before
+ *      submitting the v1.1 AAB (Play rejects releases with RECEIVE_SMS
+ *      that have not declared an approved use case).
+ *
+ * Git reference for the original implementation: git show aabab49:lib/sms-listener.ts
  */
-export function startSmsListener(onExpenseDetected?: (count: number) => void): void {
+
+export function startSmsListener(_onExpenseDetected?: (count: number) => void): void {
   if (Platform.OS !== 'android') return;
-  if (activeSubscription) return; // already listening
-
-  try {
-    const SmsListener = require('react-native-android-sms-listener').default;
-
-    activeSubscription = SmsListener.addListener(
-      async (message: { originatingAddress: string; body: string; timestamp: number }) => {
-        try {
-          const sender = message.originatingAddress || '';
-          const body = message.body || '';
-
-          // Quick local filter — skip non-bank SMS immediately
-          if (!isBankTransactionSms(sender, body)) return;
-
-          // Bank transaction detected — send to server for AI parsing
-          const result = await processSmsMessages([
-            {
-              sender,
-              body,
-              timestamp: message.timestamp || Date.now(),
-            },
-          ]);
-
-          if (result.pending > 0 && onExpenseDetected) {
-            onExpenseDetected(result.pending);
-          }
-        } catch (err) {
-          console.warn('SMS listener processing error:', err);
-        }
-      }
-    );
-  } catch (err) {
-    console.warn('SMS listener not available:', err);
-  }
+  if (!SMS_ENABLED) return;
+  // No-op: package uninstalled for v1.
 }
 
-/**
- * Stop listening for incoming SMS messages.
- */
 export function stopSmsListener(): void {
-  if (activeSubscription) {
-    activeSubscription.remove();
-    activeSubscription = null;
-  }
+  // No-op: no active subscription in v1.
 }
 
-/**
- * Check if the SMS listener is currently active.
- */
 export function isSmsListenerActive(): boolean {
-  return activeSubscription !== null;
+  return false;
 }
