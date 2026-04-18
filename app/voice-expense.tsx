@@ -33,6 +33,7 @@ import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
 import { maybeShowInterstitial } from '@/lib/ad-manager';
+import { STORE_ENABLED } from '@/lib/feature-flags';
 
 const FREE_VOICE_LIMIT = 5;
 
@@ -235,14 +236,22 @@ export default function VoiceExpenseScreen() {
         if ((errData as any).code === 'VOICE_LIMIT_REACHED') {
           setState('idle');
           await refreshUser();
-          Alert.alert(
-            'Voice Limit Reached',
-            'You\'ve used all 5 free voice entries this month. Buy credits to continue.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Buy Credits', onPress: () => { router.back(); router.push('/subscription' as any); } },
-            ]
-          );
+          if (STORE_ENABLED) {
+            Alert.alert(
+              'Voice Limit Reached',
+              'You\'ve used all 5 free voice entries this month. Buy credits to continue.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Buy Credits', onPress: () => { router.back(); router.push('/subscription' as any); } },
+              ]
+            );
+          } else {
+            Alert.alert(
+              'Voice Limit Reached',
+              'You\'ve used all 5 free voice entries this month. Your limit resets at the start of next month.',
+              [{ text: 'OK', style: 'default' }]
+            );
+          }
           return;
         }
         throw new Error((errData as any).error || 'Failed to process voice');
@@ -434,16 +443,20 @@ export default function VoiceExpenseScreen() {
                   <Text style={styles.instructionTitle}>Monthly Limit Reached</Text>
                   <Text style={styles.instructionText}>
                     You&apos;ve used all {FREE_VOICE_LIMIT} free voice entries this month.{'\n'}
-                    Buy credits to keep using voice input.
+                    {STORE_ENABLED
+                      ? 'Buy credits to keep using voice input.'
+                      : 'Your limit resets at the start of next month.'}
                   </Text>
-                  <Pressable
-                    onPress={() => { router.back(); router.push('/subscription' as any); }}
-                    style={({ pressed }) => [styles.upgradePromptButton, pressed && { opacity: 0.9 }]}
-                    testID="upgrade-from-voice"
-                  >
-                    <Ionicons name="diamond-outline" size={18} color="#fff" />
-                    <Text style={styles.upgradePromptText}>Buy Credits</Text>
-                  </Pressable>
+                  {STORE_ENABLED && (
+                    <Pressable
+                      onPress={() => { router.back(); router.push('/subscription' as any); }}
+                      style={({ pressed }) => [styles.upgradePromptButton, pressed && { opacity: 0.9 }]}
+                      testID="upgrade-from-voice"
+                    >
+                      <Ionicons name="diamond-outline" size={18} color="#fff" />
+                      <Text style={styles.upgradePromptText}>Buy Credits</Text>
+                    </Pressable>
+                  )}
                 </>
               ) : (
                 <>

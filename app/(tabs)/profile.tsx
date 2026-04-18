@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { SMS_ENABLED } from '@/lib/feature-flags';
+import { SMS_ENABLED, STORE_ENABLED } from '@/lib/feature-flags';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -77,20 +77,24 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>
 
-            <View style={styles.menuDivider} />
+            {STORE_ENABLED && (
+              <>
+                <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItem} onPress={() => navigateTo('/subscription')} testID="subscription-menu-item">
-              <View style={[styles.menuIconBg, { backgroundColor: '#8B5CF615' }]}>
-                <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
-              </View>
-              <Text style={styles.menuLabel}>Store</Text>
-              {!user?.adsRemoved && (
-                <View style={styles.planBadge}>
-                  <Text style={styles.planBadgeText}>ADS</Text>
-                </View>
-              )}
-              <Ionicons name="chevron-forward" size={18} color={colors.border} />
-            </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/subscription')} testID="subscription-menu-item">
+                  <View style={[styles.menuIconBg, { backgroundColor: '#8B5CF615' }]}>
+                    <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
+                  </View>
+                  <Text style={styles.menuLabel}>Store</Text>
+                  {!user?.adsRemoved && (
+                    <View style={styles.planBadge}>
+                      <Text style={styles.planBadgeText}>ADS</Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color={colors.border} />
+                </Pressable>
+              </>
+            )}
 
             <View style={styles.menuDivider} />
 

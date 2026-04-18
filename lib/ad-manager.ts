@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { ADS_ENABLED } from '@/lib/feature-flags';
 
 const SAVE_COUNT_KEY = 'ad_expense_save_count';
 const INTERSTITIAL_INTERVAL = 4;
@@ -17,15 +18,19 @@ export const AD_INTERSTITIAL_ID = Platform.select({
   default: 'ca-app-pub-3940256099942544/1033173712',
 });
 
-// Check if the native ads module is available (not available in Expo Go)
+// Lazy-load the native ads module. Wrapped in a guard so (1) Expo Go skips it,
+// (2) builds with ADS_ENABLED=false never require() it — letting us drop the
+// react-native-google-mobile-ads plugin from app.json without breaking imports.
 let adsModule: any = null;
-try {
-  adsModule = require('react-native-google-mobile-ads');
-} catch {
-  // Native module not available (Expo Go) — ads will be disabled
+if (ADS_ENABLED) {
+  try {
+    adsModule = require('react-native-google-mobile-ads');
+  } catch {
+    // Native module not available (Expo Go or plugin missing) — ads disabled
+  }
 }
 
-export const ADS_AVAILABLE = adsModule !== null;
+export const ADS_AVAILABLE = ADS_ENABLED && adsModule !== null;
 
 /**
  * Get the BannerAd component (or null if not available)
@@ -61,7 +66,7 @@ export async function trackSaveAndCheckInterstitial(): Promise<boolean> {
  * Try to show an interstitial ad. No-ops if native module isn't available.
  */
 export async function maybeShowInterstitial(adsRemoved?: boolean): Promise<void> {
-  if (adsRemoved || Platform.OS === 'web' || !ADS_AVAILABLE) return;
+  if (!ADS_ENABLED || adsRemoved || Platform.OS === 'web' || !ADS_AVAILABLE) return;
 
   try {
     const shouldShow = await trackSaveAndCheckInterstitial();

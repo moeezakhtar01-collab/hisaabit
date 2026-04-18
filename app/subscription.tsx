@@ -13,11 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import type { lightColors } from '@/constants/colors';
 import { apiRequest } from '@/lib/query-client';
+import { STORE_ENABLED } from '@/lib/feature-flags';
 
 const MONTHLY_FREE_LIMIT = 5;
 
@@ -36,8 +37,16 @@ export default function SubscriptionScreen() {
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   useEffect(() => {
+    if (!STORE_ENABLED) return;
     loadStoreInfo();
   }, []);
+
+  // Gate the entire screen. Placed AFTER all hook calls to satisfy
+  // react-hooks/rules-of-hooks — a conditional early return before hooks
+  // would break hook ordering on subsequent renders.
+  if (!STORE_ENABLED) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const loadStoreInfo = async () => {
     try {
