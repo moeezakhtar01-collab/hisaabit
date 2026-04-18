@@ -3,6 +3,15 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import { File as BufferFile } from "node:buffer";
+
+// OpenAI SDK 6.x requires a global `File` constructor for file uploads
+// (Whisper transcription, etc). Node 20+ exposes it globally; older Node
+// versions don't. Railway currently runs Node 18, so we polyfill from
+// node:buffer to unblock /api/voice-expense. Safe to keep even after
+// Node 20 upgrade — the existing global wins via the `??=` check.
+// @ts-expect-error - node:buffer File is not assignable to globalThis.File
+globalThis.File ??= BufferFile;
 
 const app = express();
 app.set("trust proxy", 1);
