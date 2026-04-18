@@ -511,9 +511,16 @@ export default function WeeklyReportScreen() {
       {/* Tap areas (behind content) */}
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         <View style={s.tapRow} pointerEvents="box-none">
-          <Pressable style={s.tapBack} onPress={goBack} />
-          {index < TOTAL_SCREENS - 1 && (
-            <Pressable style={s.tapForward} onPress={advance} />
+          {index === TOTAL_SCREENS - 1 ? (
+            // Final slide: tap anywhere on empty area closes the report.
+            // Share / View Details buttons in ClosingSlide still receive
+            // their own touches since they sit in a higher z-index layer.
+            <Pressable style={s.tapClose} onPress={close} />
+          ) : (
+            <>
+              <Pressable style={s.tapBack} onPress={goBack} />
+              <Pressable style={s.tapForward} onPress={advance} />
+            </>
           )}
         </View>
       </View>
@@ -597,6 +604,7 @@ const s = StyleSheet.create({
   },
   tapBack: { flex: 3 },
   tapForward: { flex: 7 },
+  tapClose: { flex: 1 },
 
   // Content
   slideWrap: {
