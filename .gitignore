@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Server build output (Railway rebuilds on deploy)
+server_dist/
+
 # Native
 ios/
 android/

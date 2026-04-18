@@ -32,7 +32,6 @@ export async function apiRequest(
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
-      "ngrok-skip-browser-warning": "true",
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
@@ -53,7 +52,6 @@ export const getQueryFn: <T>(options: {
 
     const res = await fetch(url.toString(), {
       credentials: "include",
-      headers: { "ngrok-skip-browser-warning": "true" },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
