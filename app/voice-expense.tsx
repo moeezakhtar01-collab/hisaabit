@@ -69,13 +69,23 @@ function formatDateLabel(dateStr: string): string {
   return `${DAYS_OF_WEEK[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
 
+// Local-tz date string (YYYY-MM-DD). `toISOString()` would convert to UTC
+// first, which drops dates by 1 between midnight and ~5am in PKT (UTC+5)
+// and makes "Today" disappear from the picker.
+function toLocalISODate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function generateDateOptions(): string[] {
   const dates: string[] = [];
   const today = new Date();
   for (let i = 0; i < 30; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalISODate(d));
   }
   return dates;
 }
@@ -221,6 +231,12 @@ export default function VoiceExpenseScreen() {
         formData.append('audio', destFile as any);
       }
 
+      // Tell the server what "today" is in the user's local timezone, so
+      // phrases like "aaj" / "today" resolve against local-wall-clock day
+      // rather than the server's UTC day (which can be 1 day off for PKT
+      // users recording after midnight local).
+      formData.append('localDate', toLocalISODate(new Date()));
+
       const baseUrl = getApiUrl();
       const apiUrl = new URL('/api/voice-expense', baseUrl).toString();
       const fetchFn = Platform.OS === 'web' ? globalThis.fetch : (await import('expo/fetch')).fetch;
@@ -267,7 +283,7 @@ export default function VoiceExpenseScreen() {
 
       const data = await res.json() as VoiceResult;
 
-      const defaultDate = params.date || new Date().toISOString().split('T')[0];
+      const defaultDate = params.date || toLocalISODate(new Date());
 
       if (!data.expenses && (data as any).amount !== undefined) {
         const legacy = data as any;

@@ -795,13 +795,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const categoryList = CATEGORIES.map(c => `"${c.key}" (${c.label})`).join(", ");
 
+      // Use the client's local-timezone date for "today" so phrases like
+      // "aaj" / "today" resolve against the user's wall-clock day, not the
+      // server's UTC day. Fall back to UTC only when the client didn't
+      // provide one (old builds, curl, etc).
+      const rawLocalDate = typeof req.body?.localDate === "string" ? req.body.localDate : "";
+      const todayLocal = /^\d{4}-\d{2}-\d{2}$/.test(rawLocalDate)
+        ? rawLocalDate
+        : new Date().toISOString().split("T")[0];
+      const yesterdayLocal = (() => {
+        const d = new Date(todayLocal + "T12:00:00Z");
+        d.setUTCDate(d.getUTCDate() - 1);
+        return d.toISOString().split("T")[0];
+      })();
+
       const extraction = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0,
         messages: [
           {
             role: "system",
-            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English. A single message may mention MULTIPLE separate expenses — you must extract ALL of them. Today's date is ${new Date().toISOString().split('T')[0]}.
+            content: `You extract expense details from Pakistani household expense descriptions. The user speaks in Urdu, Roman Urdu, or English. A single message may mention MULTIPLE separate expenses — you must extract ALL of them. Today's date is ${todayLocal}.
 
 For EACH expense, extract:
 1. amount: The amount in PKR (Pakistani Rupees). Convert words like "hazaar" (thousand), "sau" (hundred), "lakh" to numbers. "paanch sau" = 500, "do hazaar" = 2000, "teen sau pachaas" = 350.
@@ -813,8 +827,8 @@ ALWAYS respond with a JSON array, even for a single expense:
 [{"amount": number, "category": "key", "note": "description", "date": "YYYY-MM-DD"}]
 
 Examples:
-- "kiryana ka saman liya paanch sau ka aur bijli ka bill do hazaar tha" → [{"amount":500,"category":"kiryana","note":"Grocery shopping","date":"${new Date().toISOString().split('T')[0]}"},{"amount":2000,"category":"bijliBill","note":"Electricity bill","date":"${new Date().toISOString().split('T')[0]}"}]
-- "kal chai pi teen sau ki" → [{"amount":300,"category":"chaiNashta","note":"Tea","date":"${(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })()}"}]
+- "kiryana ka saman liya paanch sau ka aur bijli ka bill do hazaar tha" → [{"amount":500,"category":"kiryana","note":"Grocery shopping","date":"${todayLocal}"},{"amount":2000,"category":"bijliBill","note":"Electricity bill","date":"${todayLocal}"}]
+- "kal chai pi teen sau ki" → [{"amount":300,"category":"chaiNashta","note":"Tea","date":"${yesterdayLocal}"}]
 
 If you cannot determine the amount for an expense, use 0. If you cannot determine the category, use "general". If no date is mentioned, use today's date.`,
           },
@@ -844,7 +858,7 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
         expenses = [{ amount: 0, category: "general", note: transcript }];
       }
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayLocal;
       const validatedExpenses = expenses.map(e => {
         const validCategory = CATEGORIES.find(c => c.key === e.category);
         let dateStr = todayStr;
