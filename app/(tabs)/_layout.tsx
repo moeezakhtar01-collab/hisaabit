@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React from "react";
 
-import { useColors } from "@/lib/theme-context";
+import { useColors, useTheme } from "@/lib/theme-context";
 
 function NativeTabLayout() {
   return (
@@ -34,7 +34,7 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
-  const isDark = colors.background === '#0A1F14';
+  const { isDark } = useTheme();
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
   const safeAreaInsets = useSafeAreaInsets();
@@ -43,6 +43,7 @@ function ClassicTabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.background },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarStyle: {
