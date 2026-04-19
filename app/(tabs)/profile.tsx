@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { SMS_ENABLED, STORE_ENABLED } from '@/lib/feature-flags';
+import { SMS_ENABLED, STORE_ENABLED, NOTIFICATION_LISTENER_ENABLED } from '@/lib/feature-flags';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -133,6 +133,20 @@ export default function ProfileScreen() {
                     <Ionicons name="chatbox-ellipses-outline" size={18} color="#10B981" />
                   </View>
                   <Text style={styles.menuLabel}>SMS Expenses</Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.border} />
+                </Pressable>
+              </>
+            )}
+
+            {NOTIFICATION_LISTENER_ENABLED && Platform.OS === 'android' && (
+              <>
+                <View style={styles.menuDivider} />
+
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/notification-settings')} testID="notification-listener-menu-item">
+                  <View style={[styles.menuIconBg, { backgroundColor: '#14B8A615' }]}>
+                    <Ionicons name="notifications-outline" size={18} color="#14B8A6" />
+                  </View>
+                  <Text style={styles.menuLabel}>Notification Expenses</Text>
                   <Ionicons name="chevron-forward" size={18} color={colors.border} />
                 </Pressable>
               </>

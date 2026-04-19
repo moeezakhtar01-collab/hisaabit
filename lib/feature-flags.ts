@@ -19,6 +19,35 @@
  *   3. Verify react-native-android-sms-listener resolves in the prod bundle
  *   4. Test permission prompt flow end-to-end on a physical Android device
  * ---------------------------------------------------------------------------
+ * NOTIFICATION_LISTENER_ENABLED — read bank/wallet push notifications via
+ * Android's NotificationListenerService, parse expense details, and queue
+ * them as pending expenses for user confirmation.
+ *
+ * Turned off for v1 Play Store submission. Unlike SMS (which is blanket
+ * restricted for expense apps), NotificationListener is *allowed* but
+ * heavily scrutinized under Google's "Restricted Permissions" policy:
+ *   - must be justified as core functionality in the Play listing
+ *   - must be disclosed in privacy policy
+ *   - users must toggle it on through Android Settings (system dialog)
+ *   - cannot monetize / share the captured data
+ *
+ * Adding this permission on a brand-new listing typically triggers a
+ * 7-14 day manual review, so we keep it off for the initial submission
+ * and flip it on in v1.1 once Hisaabit has review credibility.
+ *
+ * To re-enable in v1.1:
+ *   1. Install the native package:
+ *        bun add react-native-android-notification-listener
+ *      (or another implementation — swap the require in
+ *      lib/notification-listener.ts)
+ *   2. Add the plugin to app.json "plugins" array:
+ *        "./plugins/withNotificationListener"
+ *   3. Update the Play Store listing description + privacy policy with
+ *      the notification-access disclosure
+ *   4. Flip NOTIFICATION_LISTENER_ENABLED to true
+ *   5. Rebuild APK and verify the pre-permission screen + system-settings
+ *      handoff flow end-to-end on a physical Android device
+ * ---------------------------------------------------------------------------
  * STORE_ENABLED — in-app purchases (remove ads, buy voice credits).
  *
  * Turned off for v1 Play Store submission. The current /api/purchase endpoint
@@ -52,5 +81,6 @@
  * ---------------------------------------------------------------------------
  */
 export const SMS_ENABLED: boolean = false;
+export const NOTIFICATION_LISTENER_ENABLED: boolean = false;
 export const STORE_ENABLED: boolean = false;
 export const ADS_ENABLED: boolean = false;

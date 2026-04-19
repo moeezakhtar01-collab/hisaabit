@@ -17,7 +17,8 @@ import { queryClient } from "@/lib/query-client";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider, useColors } from "@/lib/theme-context";
 import { initSmsListener, teardownSmsListener } from "@/lib/sms-processor";
-import { SMS_ENABLED } from "@/lib/feature-flags";
+import { initNotificationListener, teardownNotificationListener } from "@/lib/notification-listener";
+import { SMS_ENABLED, NOTIFICATION_LISTENER_ENABLED } from "@/lib/feature-flags";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,6 +52,16 @@ function AuthGate() {
     initSmsListener().catch(() => {});
 
     return () => teardownSmsListener();
+  }, [user]);
+
+  // Start real-time notification listener (Android only, flagged off for v1 — v1.1 scaffold)
+  useEffect(() => {
+    if (!NOTIFICATION_LISTENER_ENABLED) return;
+    if (!user || Platform.OS !== 'android') return;
+
+    initNotificationListener().catch(() => {});
+
+    return () => teardownNotificationListener();
   }, [user]);
 
   if (isLoading) {
@@ -133,6 +144,14 @@ function AuthGate() {
       />
       <Stack.Screen
         name="sms-settings"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="notification-settings"
         options={{
           headerShown: false,
           presentation: "modal",
