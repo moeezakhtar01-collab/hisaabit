@@ -507,7 +507,7 @@ export default function BudgetsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowCategoryModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, Platform.OS === 'android' && { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
               {editingBudget ? 'Edit Budget' : 'Add Category Budget'}
@@ -593,7 +593,7 @@ export default function BudgetsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowMonthlyModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, Platform.OS === 'android' && { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
               {monthlyLimit > 0 ? 'Edit Monthly Budget' : 'Set Monthly Budget'}
@@ -647,7 +647,7 @@ export default function BudgetsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowDailyModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, Platform.OS === 'android' && { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
               {budgetSettings?.dailyLimit ? 'Edit Daily Budget' : 'Set Daily Budget'}
@@ -712,7 +712,7 @@ export default function BudgetsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowWeeklyModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, Platform.OS === 'android' && { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
               {budgetSettings?.weeklyLimit ? 'Edit Weekly Budget' : 'Set Weekly Budget'}
