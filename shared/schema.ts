@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   adsRemoved: boolean("ads_removed").default(false).notNull(),
   smsParsingEnabled: boolean("sms_parsing_enabled").default(false).notNull(),
   lastSmsReadTimestamp: timestamp("last_sms_read_timestamp"),
+  hasSeenDemo: boolean("has_seen_demo").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

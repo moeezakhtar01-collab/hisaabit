@@ -167,6 +167,10 @@ export async function updateUserPassword(userId: string, hashedPassword: string)
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
 }
 
+export async function markUserDemoSeen(userId: string): Promise<void> {
+  await db.update(users).set({ hasSeenDemo: true }).where(eq(users.id, userId));
+}
+
 export async function getBudgetSettings(userId: string): Promise<BudgetSettings | null> {
   const [settings] = await db.select().from(budgetSettings).where(eq(budgetSettings.userId, userId)).limit(1);
   return settings || null;

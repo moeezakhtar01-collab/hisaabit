@@ -31,11 +31,14 @@ function AuthGate() {
     if (isLoading) return;
 
     const inAuth = segments[0] === "login" || segments[0] === "register" || segments[0] === "forgot-password";
+    const onDemo = segments[0] === "quick-demo";
 
     if (!user && !inAuth) {
       router.replace("/login");
     } else if (user && inAuth) {
-      router.replace("/");
+      router.replace(user.hasSeenDemo ? "/" : "/quick-demo");
+    } else if (user && !user.hasSeenDemo && !onDemo && !inAuth) {
+      router.replace("/quick-demo");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, segments]);
@@ -158,6 +161,15 @@ function AuthGate() {
           headerShown: false,
           presentation: "fullScreenModal",
           animation: "fade",
+        }}
+      />
+      <Stack.Screen
+        name="quick-demo"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "fade",
+          gestureEnabled: false,
         }}
       />
     </Stack>

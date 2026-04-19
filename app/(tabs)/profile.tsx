@@ -164,6 +164,16 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
+            <Pressable style={styles.menuItem} onPress={() => navigateTo('/quick-demo')} testID="replay-demo-menu-item">
+              <View style={[styles.menuIconBg, { backgroundColor: '#EC489915' }]}>
+                <Ionicons name="sparkles-outline" size={18} color="#EC4899" />
+              </View>
+              <Text style={styles.menuLabel}>Replay Demo</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.border} />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
             <Pressable style={styles.menuItem} onPress={() => navigateTo('/about')} testID="about-menu-item">
               <View style={[styles.menuIconBg, { backgroundColor: '#06B6D415' }]}>
                 <Ionicons name="information-circle-outline" size={18} color="#06B6D4" />

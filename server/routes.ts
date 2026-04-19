@@ -31,6 +31,7 @@ import {
   setBudgetSettings,
   updateUserName,
   updateUserPassword,
+  markUserDemoSeen,
   deleteUserAccount,
   getSubscriptionInfo,
   updateSubscriptionPlan,
@@ -307,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.userId = user.id;
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0 } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0, hasSeenDemo: user.hasSeenDemo || false } });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -402,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0 } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0, hasSeenDemo: user.hasSeenDemo || false } });
     } catch (err) {
       console.error("Auth check error:", err);
       return res.status(500).json({ error: "Something went wrong" });
@@ -419,6 +420,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  app.post("/api/auth/mark-demo-seen", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await markUserDemoSeen(req.session.userId!);
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Mark demo seen error:", err);
+      return res.status(500).json({ error: "Something went wrong" });
+    }
+  });
+
   app.put("/api/auth/profile", requireAuth, async (req: Request, res: Response) => {
     try {
       const { name } = req.body;
@@ -426,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name is required" });
       }
       const user = await updateUserName(req.session.userId!, name.trim());
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0 } });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0, hasSeenDemo: user.hasSeenDemo || false } });
     } catch (err) {
       console.error("Update profile error:", err);
       return res.status(500).json({ error: "Failed to update profile" });

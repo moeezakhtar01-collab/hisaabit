@@ -10,6 +10,7 @@ interface AuthUser {
   voiceUsageCount: number;
   adsRemoved: boolean;
   voiceCreditsPurchased: number;
+  hasSeenDemo: boolean;
 }
 
 interface AuthContextValue {
@@ -24,6 +25,7 @@ interface AuthContextValue {
   changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
   deleteAccount: (password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
+  markDemoSeen: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -161,6 +163,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
+  const markDemoSeen = async () => {
+    // Optimistic local update so the gate doesn't flash the demo again.
+    setUser((prev) => (prev ? { ...prev, hasSeenDemo: true } : prev));
+    try {
+      const baseUrl = getApiUrl();
+      await fetch(new URL('/api/auth/mark-demo-seen', baseUrl).toString(), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+      });
+    } catch {}
+  };
+
   const deleteAccount = async (password: string) => {
     const baseUrl = getApiUrl();
     const res = await fetch(new URL('/api/auth/account', baseUrl).toString(), {
@@ -186,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     changePassword,
     deleteAccount,
     refreshUser,
+    markDemoSeen,
   }), [user, isLoading]);
 
   return (
