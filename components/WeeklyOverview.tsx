@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -108,7 +107,6 @@ export default function WeeklyOverview({ expenses }: WeeklyOverviewProps) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [selectedMissingDate, setSelectedMissingDate] = useState<string | null>(null);
   const [completedDays, setCompletedDays] = useState<Set<string>>(new Set());
   const prevTotalsRef = useRef<Map<string, number>>(new Map());
   const calendarAnim = useSharedValue(0);
@@ -196,42 +194,11 @@ export default function WeeklyOverview({ expenses }: WeeklyOverviewProps) {
     return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }, [calendarMonth]);
 
-  const handleDayCellPress = useCallback((key: string, state: DayState) => {
-    if (state === 'missing') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedMissingDate(key);
-    } else {
-      toggleCalendar();
-    }
-  }, [toggleCalendar]);
-
-  const handleCalendarDayPress = useCallback((dayKey: string, state: DayState) => {
-    if (state === 'missing') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedMissingDate(dayKey);
-    }
+  const handleDayPress = useCallback((key: string, state: DayState) => {
+    if (state === 'future') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: '/period-expenses', params: { period: 'day', date: key } });
   }, []);
-
-  const formatMissingDate = useCallback((dayKey: string) => {
-    const [y, m, d] = dayKey.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    });
-  }, []);
-
-  const handleAddVoice = useCallback(() => {
-    const date = selectedMissingDate;
-    setSelectedMissingDate(null);
-    router.push({ pathname: '/voice-expense', params: date ? { date } : {} });
-  }, [selectedMissingDate]);
-
-  const handleQuickAdd = useCallback(() => {
-    const date = selectedMissingDate;
-    setSelectedMissingDate(null);
-    router.push({ pathname: '/add-expense', params: date ? { date } : {} });
-  }, [selectedMissingDate]);
 
   return (
     <View style={styles.container}>
@@ -259,7 +226,7 @@ export default function WeeklyOverview({ expenses }: WeeklyOverviewProps) {
           return (
             <Pressable
               key={key}
-              onPress={() => handleDayCellPress(key, state)}
+              onPress={() => handleDayPress(key, state)}
               style={styles.dayColumn}
             >
               <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>
@@ -351,7 +318,7 @@ export default function WeeklyOverview({ expenses }: WeeklyOverviewProps) {
                   <Pressable
                     key={dayKey}
                     onPress={() => {
-                      if (inMonth) handleCalendarDayPress(dayKey, state);
+                      if (inMonth) handleDayPress(dayKey, state);
                     }}
                     style={styles.calendarCell}
                   >
@@ -387,49 +354,6 @@ export default function WeeklyOverview({ expenses }: WeeklyOverviewProps) {
         </View>
       </Animated.View>
 
-      {/* Missing day modal */}
-      <Modal
-        visible={!!selectedMissingDate}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedMissingDate(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setSelectedMissingDate(null)}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>
-              {selectedMissingDate ? formatMissingDate(selectedMissingDate) : ''}
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              No entries for this day. Add anything?
-            </Text>
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={handleAddVoice}
-                style={({ pressed }) => [
-                  styles.modalBtn,
-                  styles.modalBtnVoice,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-                ]}
-              >
-                <Ionicons name="mic" size={20} color="#fff" />
-                <Text style={styles.modalBtnTextLight}>Add via voice</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleQuickAdd}
-                style={({ pressed }) => [
-                  styles.modalBtn,
-                  styles.modalBtnQuick,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-                ]}
-              >
-                <Ionicons name="create" size={20} color={colors.primary} />
-                <Text style={styles.modalBtnText}>Quick add</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -650,71 +574,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.warning + '60',
     marginTop: 3,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 340,
-    alignItems: 'center',
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontFamily: 'Inter_700Bold',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  modalBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  modalBtnVoice: {
-    backgroundColor: colors.primary,
-  },
-  modalBtnQuick: {
-    backgroundColor: colors.primary + '10',
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-  },
-  modalBtnTextLight: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#fff',
-  },
-  modalBtnText: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.primary,
   },
 });
