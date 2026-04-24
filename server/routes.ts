@@ -636,8 +636,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       <h2>Who we are</h2>
       <p>
-        Hisaabit is operated independently. Questions or requests about your data:
-        <a href="mailto:support@hisaabit.com">support@hisaabit.com</a>.
+        Hisaabit is operated independently from Pakistan. Questions or requests
+        about your data: <a href="mailto:support@hisaabit.com">support@hisaabit.com</a>.
       </p>
 
       <h2>What we collect</h2>
@@ -646,16 +646,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <li><strong>Expense data:</strong> amounts, categories, optional notes, and the date/time of each expense you log.</li>
         <li><strong>Budget settings:</strong> daily, weekly, and monthly budgets you set, plus category preferences.</li>
         <li><strong>Voice recordings (temporary):</strong> when you tap the microphone button, we upload that audio clip to our server for transcription. It is deleted immediately after the text is extracted.</li>
-        <li><strong>Session cookie:</strong> a signed cookie that keeps you logged in across app restarts.</li>
+        <li><strong>Session cookie:</strong> a signed first-party cookie that keeps you logged in across app restarts. It is used only to maintain your session inside Hisaabit, and is never used to track you across other apps or websites.</li>
       </ul>
 
       <h2>What we do NOT collect</h2>
       <ul>
         <li>Your location</li>
         <li>Your contacts</li>
-        <li>Your SMS messages (SMS-import is fully on-device — nothing leaves your phone)</li>
-        <li>Your photos, files, or camera access</li>
-        <li>Any advertising or analytics identifiers</li>
+        <li>Your SMS messages, call logs, or on-device notifications</li>
+        <li>Your photos, files, or camera</li>
+        <li>Any third-party advertising or analytics identifiers</li>
       </ul>
 
       <h2>Why we collect it</h2>
@@ -667,13 +667,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <li>Expense and budget data powers the charts, summaries, and weekly report.</li>
         <li>Voice clips are transcribed into expenses and then discarded.</li>
       </ul>
-      <p>We do not sell your data. We do not use it for advertising. We do not share it with third parties for marketing.</p>
+      <p>We do not sell your personal data. We do not use it for advertising. We do not share it with third parties for advertising or marketing purposes.</p>
 
       <h2>Where your data lives</h2>
       <ul>
         <li><strong>Database:</strong> PostgreSQL hosted on Railway. All traffic between the app and database travels over HTTPS/TLS.</li>
-        <li><strong>Voice transcription:</strong> audio clips are sent to OpenAI (Whisper + GPT-4o-mini) for speech-to-text. OpenAI does not use API traffic to train their models. The clip is deleted on our server as soon as the transcript is returned.</li>
-        <li><strong>Email delivery:</strong> account-confirmation and password-reset emails are sent via Resend. Only your email address is passed to Resend.</li>
+        <li><strong>Voice transcription:</strong> audio clips are sent to OpenAI (Whisper + GPT-4o-mini) for transcription and structured extraction (amount, category, date). Per OpenAI's API policies, this data is not used to train their models and is retained only briefly for abuse monitoring before deletion. Recording is activated only when you tap the microphone button; the clip is deleted from our server as soon as the transcript is returned.</li>
+        <li><strong>Email delivery:</strong> account-confirmation and password-reset emails are sent via Resend. Resend receives your email address and the standard delivery metadata (sender, subject, timestamps, and delivery status) needed to send and confirm each message.</li>
       </ul>
 
       <h2>How long we keep it</h2>
@@ -682,14 +682,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         delete your account. When you delete your account, the deletion is permanent and takes
         effect immediately — there is no soft-delete or recovery window.
       </p>
+      <p>
+        Temporary voice recordings are deleted from our server within seconds of transcription.
+        Server and security logs (such as IP addresses for failed login attempts) may be
+        retained for a limited period for abuse prevention and debugging, and are not linked
+        to your saved expenses or budgets.
+      </p>
 
       <h2>Your rights &amp; controls</h2>
       <ul>
-        <li><strong>Export:</strong> download a JSON copy of everything we hold about you from inside the app (Settings → Export data).</li>
+        <li><strong>Export:</strong> download a JSON copy of everything we hold about you from inside the app (Settings → Export data). Export requires you to be signed in, so only you can download your data.</li>
         <li><strong>Delete in-app:</strong> Settings → Delete account (requires your password).</li>
         <li><strong>Delete from the web:</strong> if you no longer have the app installed, visit <a href="/account-deletion">/account-deletion</a> and confirm with your email and password.</li>
         <li><strong>Edit:</strong> you can change your name, password, and any expense or budget at any time from inside the app.</li>
       </ul>
+
+      <p>
+        If you live in a region with data-protection laws — including but not limited to the
+        EU/EEA, the UK, California, and Pakistan — you may have additional rights under local
+        law such as access, correction, portability, or objection. The Export and Delete
+        actions above cover most of these directly. For anything the app does not let you do
+        yourself, email <a href="mailto:support@hisaabit.com">support@hisaabit.com</a> and we
+        will respond within a reasonable timeframe.
+      </p>
 
       <div class="callout">
         You do not need to contact us to delete your account. Account deletion is fully
