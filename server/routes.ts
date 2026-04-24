@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <button type="submit">Permanently delete my account</button>
       </form>
     </div>
-    <p class="foot">Need help? Email <a href="mailto:support@hisaab.app">support@hisaab.app</a></p>
+    <p class="foot">Need help? Email <a href="mailto:support@hisaabit.com">support@hisaabit.com</a></p>
   </div>
 </body>
 </html>`;
@@ -637,7 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <h2>Who we are</h2>
       <p>
         Hisaabit is operated independently. Questions or requests about your data:
-        <a href="mailto:support@hisaab.app">support@hisaab.app</a>.
+        <a href="mailto:support@hisaabit.com">support@hisaabit.com</a>.
       </p>
 
       <h2>What we collect</h2>
@@ -712,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <p>
         Hisaabit is not directed at children under 13 and we do not knowingly collect data from
         them. If you believe a child has created an account, email
-        <a href="mailto:support@hisaab.app">support@hisaab.app</a> and we will remove it.
+        <a href="mailto:support@hisaabit.com">support@hisaabit.com</a> and we will remove it.
       </p>
 
       <h2>Changes to this policy</h2>
@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <h2>Contact</h2>
       <p>
         Questions, concerns, or deletion requests:
-        <a href="mailto:support@hisaab.app">support@hisaab.app</a>.
+        <a href="mailto:support@hisaabit.com">support@hisaabit.com</a>.
       </p>
     </div>
     <p class="foot">Hisaabit · Personal Finance Tracker for Pakistan</p>
