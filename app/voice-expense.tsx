@@ -33,9 +33,6 @@ import { getApiUrl } from '@/lib/query-client';
 import { addExpense, CATEGORIES, formatPKR, getCategoryLabel } from '@/lib/storage';
 import { useAuth } from '@/lib/auth-context';
 import { maybeShowInterstitial } from '@/lib/ad-manager';
-import { STORE_ENABLED } from '@/lib/feature-flags';
-
-const FREE_VOICE_LIMIT = 5;
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'result';
 
@@ -94,7 +91,7 @@ export default function VoiceExpenseScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = createStyles(colors);
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ date?: string }>();
   const [state, setState] = useState<VoiceState>('idle');
   const [result, setResult] = useState<VoiceResult | null>(null);
@@ -106,10 +103,6 @@ export default function VoiceExpenseScreen() {
   const [editingValue, setEditingValue] = useState('');
   const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
   const [datePickerIndex, setDatePickerIndex] = useState<number | null>(null);
-
-  const voiceUsageCount = user?.voiceUsageCount || 0;
-  const voiceCreditsPurchased = user?.voiceCreditsPurchased || 0;
-  const isLimitReached = voiceUsageCount >= FREE_VOICE_LIMIT && voiceCreditsPurchased <= 0;
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -254,27 +247,6 @@ export default function VoiceExpenseScreen() {
         let errData: any = {};
         try { errData = rawBody ? JSON.parse(rawBody) : {}; } catch { /* not JSON */ }
 
-        if (errData.code === 'VOICE_LIMIT_REACHED') {
-          setState('idle');
-          await refreshUser();
-          if (STORE_ENABLED) {
-            Alert.alert(
-              'Voice Limit Reached',
-              'You\'ve used all 5 free voice entries this month. Buy credits to continue.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Buy Credits', onPress: () => { router.back(); router.push('/subscription' as any); } },
-              ]
-            );
-          } else {
-            Alert.alert(
-              'Voice Limit Reached',
-              'You\'ve used all 5 free voice entries this month. Your limit resets at the start of next month.',
-              [{ text: 'OK', style: 'default' }]
-            );
-          }
-          return;
-        }
         // Include HTTP status + server body snippet so the user can tell us
         // exactly what went wrong without needing server logs.
         const serverMsg = errData.error || (rawBody ? rawBody.slice(0, 120) : '');
@@ -298,7 +270,6 @@ export default function VoiceExpenseScreen() {
       setResult(data);
       setState('result');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      refreshUser();
     } catch (err: any) {
       console.error('Voice processing error:', err);
       setState('idle');
@@ -459,53 +430,19 @@ export default function VoiceExpenseScreen() {
         <View style={[styles.body, { paddingBottom: insets.bottom + 20 }]}>
           {state === 'idle' && (
             <Animated.View entering={FadeIn.duration(400)} style={styles.idleContainer}>
-              {isLimitReached ? (
-                <>
-                  <View style={styles.limitReachedIcon}>
-                    <Ionicons name="lock-closed" size={36} color={colors.textSecondary} />
-                  </View>
-                  <Text style={styles.instructionTitle}>Monthly Limit Reached</Text>
-                  <Text style={styles.instructionText}>
-                    You&apos;ve used all {FREE_VOICE_LIMIT} free voice entries this month.{'\n'}
-                    {STORE_ENABLED
-                      ? 'Buy credits to keep using voice input.'
-                      : 'Your limit resets at the start of next month.'}
-                  </Text>
-                  {STORE_ENABLED && (
-                    <Pressable
-                      onPress={() => { router.back(); router.push('/subscription' as any); }}
-                      style={({ pressed }) => [styles.upgradePromptButton, pressed && { opacity: 0.9 }]}
-                      testID="upgrade-from-voice"
-                    >
-                      <Ionicons name="diamond-outline" size={18} color="#fff" />
-                      <Text style={styles.upgradePromptText}>Buy Credits</Text>
-                    </Pressable>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Text style={styles.instructionTitle}>Tap to Record</Text>
-                  <Text style={styles.instructionText}>
-                    Speak naturally about your expenses.{'\n'}
-                    You can mention multiple expenses at once!
-                  </Text>
+              <Text style={styles.instructionTitle}>Tap to Record</Text>
+              <Text style={styles.instructionText}>
+                Speak naturally about your expenses.{'\n'}
+                You can mention multiple expenses at once!
+              </Text>
 
-                  <View style={styles.usageHint}>
-                    <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.usageHintText}>
-                      {voiceUsageCount} of {FREE_VOICE_LIMIT} free this month{voiceCreditsPurchased > 0 ? ` \u2022 ${voiceCreditsPurchased} credits` : ''}
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    onPress={startRecording}
-                    style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
-                    testID="start-recording"
-                  >
-                    <Ionicons name="mic" size={36} color="#fff" />
-                  </Pressable>
-                </>
-              )}
+              <Pressable
+                onPress={startRecording}
+                style={({ pressed }) => [styles.recordButton, pressed && { transform: [{ scale: 0.95 }] }]}
+                testID="start-recording"
+              >
+                <Ionicons name="mic" size={36} color="#fff" />
+              </Pressable>
 
               <Pressable onPress={() => { router.back(); router.push('/add-expense'); }} style={styles.manualLink}>
                 <Ionicons name="create-outline" size={16} color={colors.primary} />
@@ -1191,43 +1128,5 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   dateOptionTextSelected: {
     fontFamily: 'Inter_700Bold',
     color: colors.primary,
-  },
-  limitReachedIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.border + '40',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  upgradePromptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F59E0B',
-    borderRadius: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  upgradePromptText: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
-  },
-  usageHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.border + '30',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  usageHintText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textSecondary,
   },
 });
