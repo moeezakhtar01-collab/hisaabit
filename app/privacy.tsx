@@ -21,6 +21,9 @@ import { useAuth } from '@/lib/auth-context';
 import type { lightColors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 import { fetch } from 'expo/fetch';
+import * as Sharing from 'expo-sharing';
+import { Paths, File } from 'expo-file-system';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +37,17 @@ export default function PrivacyScreen() {
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
+
+  const openFullPolicy = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const baseUrl = getApiUrl();
+    const url = new URL('/privacy', baseUrl).toString();
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Alert.alert('Could not open', url);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -50,10 +64,30 @@ export default function PrivacyScreen() {
       const data = await res.json();
       const expenseCount = data.expenses?.length ?? 0;
       const budgetCount = data.budgets?.length ?? 0;
-      Alert.alert(
-        'Data Exported',
-        `Found ${expenseCount} expense(s) and ${budgetCount} budget(s).\n\n${JSON.stringify(data, null, 2)}`,
-      );
+
+      // Write the export to a file and hand off to the native share sheet.
+      // Previously we dumped the raw JSON into an Alert, which was unreadable
+      // for users with more than a handful of expenses and leaked all data
+      // into the task-switcher screenshot.
+      const stamp = new Date().toISOString().slice(0, 10);
+      const filename = `Hisaabit-export-${stamp}.json`;
+      const file = new File(Paths.cache, filename);
+      file.create({ overwrite: true });
+      file.write(JSON.stringify(data, null, 2));
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'application/json',
+          dialogTitle: 'Export My Data',
+          UTI: 'public.json',
+        });
+      } else {
+        Alert.alert(
+          'Data Exported',
+          `Saved ${expenseCount} expense(s) and ${budgetCount} budget(s) to ${filename}.`,
+        );
+      }
     } catch (err: any) {
       Alert.alert('Export Failed', err.message || 'Something went wrong');
     } finally {
@@ -163,22 +197,88 @@ export default function PrivacyScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <Text style={styles.sectionLabel}>Information</Text>
+          <Text style={styles.sectionLabel}>What we store</Text>
           <View style={styles.card}>
             <View style={styles.infoRow}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+              <Ionicons name="person-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
-                Your data is stored securely on our servers. You can export or delete your data at any time.
+                Your name, email, and a hashed password — used only to sign you in.
               </Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.infoRow}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
+              <Ionicons name="receipt-outline" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
-                Your expenses, budgets, and account information are only accessible to you.
+                Expenses and budgets you add, linked to your account. We never share them with third parties.
+              </Text>
+            </View>
+            <View style={styles.separator} />
+            <View style={styles.infoRow}>
+              <Ionicons name="server-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                Data is stored on Railway (our cloud host) inside a private Postgres database, accessed over HTTPS.
+              </Text>
+            </View>
+            <View style={styles.separator} />
+            <View style={styles.infoRow}>
+              <Ionicons name="key-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                A signed session cookie keeps you logged in. No location, contacts, SMS or photos are collected.
               </Text>
             </View>
           </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+          <Text style={styles.sectionLabel}>Voice expenses</Text>
+          <View style={styles.card}>
+            <View style={styles.infoRow}>
+              <Ionicons name="mic-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                When you record a voice expense, the audio is sent to OpenAI&apos;s Whisper API for transcription and to GPT-4o-mini to pull out amount, category, and date. Only the extracted fields and transcript are saved — the audio file is deleted from our server right after processing.
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <Text style={styles.sectionLabel}>Your controls</Text>
+          <View style={styles.card}>
+            <View style={styles.infoRow}>
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                Export — download a full copy of your expenses and budgets as a JSON file any time.
+              </Text>
+            </View>
+            <View style={styles.separator} />
+            <View style={styles.infoRow}>
+              <Ionicons name="trash-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                Delete — removing your account permanently wipes your expenses, budgets, and login details from our database. This cannot be undone.
+              </Text>
+            </View>
+            <View style={styles.separator} />
+            <View style={styles.infoRow}>
+              <Ionicons name="globe-outline" size={20} color={colors.primary} />
+              <Text style={styles.infoText}>
+                Uninstalled the app? You can still delete your account at hisaabit-production.up.railway.app/account-deletion
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+          <Pressable
+            onPress={openFullPolicy}
+            style={({ pressed }) => [
+              styles.policyLink,
+              pressed && { opacity: 0.6 },
+            ]}
+            testID="full-policy-link"
+          >
+            <Text style={styles.policyLinkText}>View full Privacy Policy</Text>
+            <Ionicons name="open-outline" size={16} color={colors.primary} />
+          </Pressable>
         </Animated.View>
       </ScrollView>
 
@@ -327,6 +427,18 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  policyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  policyLinkText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: colors.primary,
   },
   modalOverlay: {
     flex: 1,

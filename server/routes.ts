@@ -35,11 +35,8 @@ import {
   deleteUserAccount,
   getSubscriptionInfo,
   updateSubscriptionPlan,
-  incrementVoiceUsage,
-  resetMonthlyVoiceUsage,
   purchaseAdRemoval,
   purchaseVoiceCredits,
-  deductVoiceCredit,
   bulkCheckProcessedSms,
   markSmsBulkProcessed,
   getPendingExpensesByUser,
@@ -498,6 +495,250 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Public Account Deletion Page ──────────────────────────────
+  // Play Store policy (July 2024+): every app that lets users create an
+  // account must expose a publicly reachable URL where they can request
+  // account + data deletion without re-installing. This page is linked
+  // from the Play listing and from the in-app privacy screen.
+  const accountDeletionPage = (message: string, isError: boolean) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delete your Hisaabit account</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #F7F8FB; color: #1A1A2E; }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 40px 20px; }
+    .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    h1 { margin: 0 0 8px 0; font-size: 24px; color: #1E3A5F; }
+    .subtitle { margin: 0 0 20px 0; color: #6B7280; font-size: 14px; }
+    ul { padding-left: 20px; color: #4B5563; font-size: 14px; line-height: 1.6; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin: 14px 0 6px; }
+    input { width: 100%; padding: 12px 14px; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 15px; font-family: inherit; }
+    input:focus { outline: none; border-color: #1E3A5F; }
+    button { width: 100%; margin-top: 20px; padding: 14px; background: #DC2626; color: #fff; border: 0; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    button:hover { background: #B91C1C; }
+    button:disabled { background: #9CA3AF; cursor: not-allowed; }
+    .msg { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; }
+    .err { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+    .ok { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+    .foot { text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 12px; }
+    a { color: #1E3A5F; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Delete your Hisaabit account</h1>
+      <p class="subtitle">Confirm with your email and password. This is permanent.</p>
+      ${message ? `<div class="msg ${isError ? "err" : "ok"}">${message}</div>` : ""}
+      <p style="margin:0 0 6px 0;font-size:13px;color:#374151;font-weight:600;">This will permanently remove:</p>
+      <ul>
+        <li>Your account (name, email, password hash)</li>
+        <li>Every expense you ever logged</li>
+        <li>All budgets, monthly budgets, and settings</li>
+        <li>Your active sessions on every device</li>
+      </ul>
+      <form method="POST" action="/account-deletion" autocomplete="off">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="email" />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+        <button type="submit">Permanently delete my account</button>
+      </form>
+    </div>
+    <p class="foot">Need help? Email <a href="mailto:support@hisaab.app">support@hisaab.app</a></p>
+  </div>
+</body>
+</html>`;
+
+  app.get("/account-deletion", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(accountDeletionPage("", false));
+  });
+
+  app.post("/account-deletion", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+      const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+      if (!email || !password) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.status(400).send(accountDeletionPage("Email and password are both required.", true));
+      }
+
+      const user = await getUserByEmail(email);
+      if (!user) {
+        // Generic message — don't leak whether the email exists.
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.status(400).send(accountDeletionPage("Those credentials don't match an account.", true));
+      }
+
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.status(400).send(accountDeletionPage("Those credentials don't match an account.", true));
+      }
+
+      await deleteUserAccount(user.id);
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(accountDeletionPage(
+        "Your account and all associated data have been permanently deleted. Thank you for using Hisaabit.",
+        false,
+      ));
+    } catch (err) {
+      console.error("Public account deletion error:", err);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(500).send(accountDeletionPage("Something went wrong. Please try again or email support.", true));
+    }
+  });
+
+  // ─── Public Privacy Policy Page ────────────────────────────────
+  // Play Store requires every listing to link to a public Privacy Policy
+  // URL. This page is the source of truth — the in-app /privacy screen
+  // mirrors the same disclosures. Keep them in sync when either changes.
+  const privacyPolicyPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy – Hisaabit</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #F7F8FB; color: #1A1A2E; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 60px; }
+    .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    h1 { margin: 0 0 4px 0; font-size: 28px; color: #1E3A5F; }
+    .updated { color: #6B7280; font-size: 13px; margin: 0 0 24px 0; }
+    h2 { font-size: 18px; color: #1E3A5F; margin: 28px 0 8px 0; }
+    p, li { color: #374151; font-size: 15px; line-height: 1.65; }
+    ul { padding-left: 22px; margin: 8px 0 12px 0; }
+    li { margin-bottom: 4px; }
+    a { color: #1E3A5F; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .foot { text-align: center; margin-top: 24px; color: #9CA3AF; font-size: 12px; }
+    .callout { background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 10px; padding: 12px 14px; margin: 12px 0; font-size: 14px; color: #0C4A6E; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 24 April 2026</p>
+
+      <p>
+        Hisaabit is a personal-finance app made for tracking daily expenses in Pakistani Rupees.
+        This policy explains what we collect, why we collect it, where it lives, and how you can
+        remove it. It applies to the Hisaabit mobile app and the backend service that supports it.
+      </p>
+
+      <h2>Who we are</h2>
+      <p>
+        Hisaabit is operated independently. Questions or requests about your data:
+        <a href="mailto:support@hisaab.app">support@hisaab.app</a>.
+      </p>
+
+      <h2>What we collect</h2>
+      <ul>
+        <li><strong>Account info:</strong> your name, email address, and a bcrypt-hashed version of your password. We never see or store your raw password.</li>
+        <li><strong>Expense data:</strong> amounts, categories, optional notes, and the date/time of each expense you log.</li>
+        <li><strong>Budget settings:</strong> daily, weekly, and monthly budgets you set, plus category preferences.</li>
+        <li><strong>Voice recordings (temporary):</strong> when you tap the microphone button, we upload that audio clip to our server for transcription. It is deleted immediately after the text is extracted.</li>
+        <li><strong>Session cookie:</strong> a signed cookie that keeps you logged in across app restarts.</li>
+      </ul>
+
+      <h2>What we do NOT collect</h2>
+      <ul>
+        <li>Your location</li>
+        <li>Your contacts</li>
+        <li>Your SMS messages (SMS-import is fully on-device — nothing leaves your phone)</li>
+        <li>Your photos, files, or camera access</li>
+        <li>Any advertising or analytics identifiers</li>
+      </ul>
+
+      <h2>Why we collect it</h2>
+      <p>
+        Every piece of data we store exists because the app needs it to work for you:
+      </p>
+      <ul>
+        <li>Account info lets you log in on more than one device.</li>
+        <li>Expense and budget data powers the charts, summaries, and weekly report.</li>
+        <li>Voice clips are transcribed into expenses and then discarded.</li>
+      </ul>
+      <p>We do not sell your data. We do not use it for advertising. We do not share it with third parties for marketing.</p>
+
+      <h2>Where your data lives</h2>
+      <ul>
+        <li><strong>Database:</strong> PostgreSQL hosted on Railway. All traffic between the app and database travels over HTTPS/TLS.</li>
+        <li><strong>Voice transcription:</strong> audio clips are sent to OpenAI (Whisper + GPT-4o-mini) for speech-to-text. OpenAI does not use API traffic to train their models. The clip is deleted on our server as soon as the transcript is returned.</li>
+        <li><strong>Email delivery:</strong> account-confirmation and password-reset emails are sent via Resend. Only your email address is passed to Resend.</li>
+      </ul>
+
+      <h2>How long we keep it</h2>
+      <p>
+        Your account and all associated expenses, budgets, and settings remain stored until you
+        delete your account. When you delete your account, the deletion is permanent and takes
+        effect immediately — there is no soft-delete or recovery window.
+      </p>
+
+      <h2>Your rights &amp; controls</h2>
+      <ul>
+        <li><strong>Export:</strong> download a JSON copy of everything we hold about you from inside the app (Settings → Export data).</li>
+        <li><strong>Delete in-app:</strong> Settings → Delete account (requires your password).</li>
+        <li><strong>Delete from the web:</strong> if you no longer have the app installed, visit <a href="/account-deletion">/account-deletion</a> and confirm with your email and password.</li>
+        <li><strong>Edit:</strong> you can change your name, password, and any expense or budget at any time from inside the app.</li>
+      </ul>
+
+      <div class="callout">
+        You do not need to contact us to delete your account. Account deletion is fully
+        self-service — either from inside the app or from the public deletion page above.
+      </div>
+
+      <h2>Security</h2>
+      <ul>
+        <li>Passwords are hashed with bcrypt (cost factor 10) before being stored.</li>
+        <li>All network traffic between the app and our servers uses HTTPS.</li>
+        <li>Authentication rate-limiting protects your account from brute-force attempts.</li>
+        <li>Session cookies are HTTP-only and signed; they cannot be read by JavaScript.</li>
+      </ul>
+      <p>
+        No online service can guarantee perfect security, but we treat your data with the same
+        care we would want for our own.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        Hisaabit is not directed at children under 13 and we do not knowingly collect data from
+        them. If you believe a child has created an account, email
+        <a href="mailto:support@hisaab.app">support@hisaab.app</a> and we will remove it.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If we change anything material about what we collect or how we use it, we will update the
+        "Last updated" date above and — where the change affects existing users — note it inside
+        the app. Continuing to use Hisaabit after a change means you accept the updated policy.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions, concerns, or deletion requests:
+        <a href="mailto:support@hisaab.app">support@hisaab.app</a>.
+      </p>
+    </div>
+    <p class="foot">Hisaabit · Personal Finance Tracker for Pakistan</p>
+  </div>
+</body>
+</html>`;
+
+  app.get("/privacy", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(privacyPolicyPage);
+  });
+
   app.get("/api/auth/export", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = await getUserById(req.session.userId!);
@@ -745,33 +986,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const subInfo = await getSubscriptionInfo(req.session.userId);
-      const voiceUsageCount = subInfo?.voiceUsageCount || 0;
-      const voiceCreditsPurchased = subInfo?.voiceCreditsPurchased || 0;
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const MONTHLY_FREE_LIMIT = 5;
-
-      // Reset monthly counter if new month
-      let effectiveUsageCount = voiceUsageCount;
-      if (subInfo?.voiceUsageResetMonth !== currentMonth) {
-        await resetMonthlyVoiceUsage(req.session.userId!, currentMonth);
-        effectiveUsageCount = 0;
-      }
-
-      // Check limits: free monthly uses first, then purchased credits
-      const hasFreeMontlyUses = effectiveUsageCount < MONTHLY_FREE_LIMIT;
-      const hasPurchasedCredits = voiceCreditsPurchased > 0;
-
-      if (!hasFreeMontlyUses && !hasPurchasedCredits) {
-        return res.status(403).json({
-          error: "You've used all 5 free voice entries this month. Buy more credits to continue.",
-          code: "VOICE_LIMIT_REACHED",
-          voiceUsageCount: effectiveUsageCount,
-          voiceCreditsPurchased: 0,
-          monthlyFreeLimit: MONTHLY_FREE_LIMIT,
-        });
-      }
-
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "OpenAI API key not configured" });
@@ -885,14 +1099,6 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
       });
 
       const finalExpenses = validatedExpenses;
-
-      if (finalExpenses.length > 0 && finalExpenses.some(e => e.amount > 0)) {
-        if (hasFreeMontlyUses) {
-          await incrementVoiceUsage(req.session.userId!);
-        } else {
-          await deductVoiceCredit(req.session.userId!);
-        }
-      }
 
       return res.json({
         transcript,
