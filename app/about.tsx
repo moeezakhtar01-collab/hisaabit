@@ -16,10 +16,11 @@ import type { lightColors } from '@/constants/colors';
 
 const FEATURES = [
   { icon: 'wallet-outline' as const, label: 'Track daily expenses in PKR' },
-  { icon: 'mic-outline' as const, label: 'Voice expense entry with AI' },
-  { icon: 'pie-chart-outline' as const, label: 'Budget tracking & insights' },
-  { icon: 'shield-checkmark-outline' as const, label: 'Secure cloud storage' },
-  { icon: 'phone-portrait-outline' as const, label: 'Access from any device' },
+  { icon: 'mic-outline' as const, label: 'Voice expenses in Urdu, Roman Urdu or English' },
+  { icon: 'pie-chart-outline' as const, label: 'Daily, weekly and monthly budget tracking' },
+  { icon: 'bar-chart-outline' as const, label: 'Spending charts by category' },
+  { icon: 'document-text-outline' as const, label: 'Share a CSV of any date range' },
+  { icon: 'shield-checkmark-outline' as const, label: 'Your data, only visible to you' },
 ];
 
 export default function AboutScreen() {
@@ -98,7 +99,7 @@ export default function AboutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>4</Text>
             </View>
-            <Text style={styles.featureLabel}>Export PDF & CSV reports anytime</Text>
+            <Text style={styles.featureLabel}>Share a CSV export from the History screen — or a full PDF from the Sunday Weekly Hisaab</Text>
           </View>
         </Animated.View>
 

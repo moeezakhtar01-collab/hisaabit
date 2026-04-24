@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { router, useNavigation } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import type { ThemeColors } from '@/constants/colors';
 import { useAuth } from '@/lib/auth-context';
@@ -61,17 +61,11 @@ export default function HomeScreen() {
     setSmsPendingCount(pendingCt);
   }, [currentMonth]);
 
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    loadExpenses();
-  }, [loadExpenses]);
-
-  useEffect(() => {
-    return navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       loadExpenses();
-    });
-  }, [navigation, loadExpenses]);
+    }, [loadExpenses])
+  );
 
   useEffect(() => {
     const interval = setInterval(loadExpenses, 30000);
@@ -197,6 +191,42 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+
+        {expenses.length === 0 && (
+          <Animated.View entering={FadeInDown.delay(110).duration(500)} style={styles.welcomeCard}>
+            <View style={styles.welcomeIconBg}>
+              <Ionicons name="sparkles" size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.welcomeTitle}>Welcome to Hisaabit</Text>
+            <Text style={styles.welcomeSubtitle}>
+              Log your first expense to start seeing charts, budgets, and your weekly story.
+            </Text>
+            <View style={styles.welcomeActions}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/voice-expense');
+                }}
+                style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+                testID="welcome-add-voice"
+              >
+                <Ionicons name="mic" size={18} color="#fff" />
+                <Text style={styles.welcomeBtnText}>Record</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/add-expense');
+                }}
+                style={({ pressed }) => [styles.welcomeBtn, styles.welcomeBtnAccent, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+                testID="welcome-add-manual"
+              >
+                <Ionicons name="create" size={18} color="#fff" />
+                <Text style={styles.welcomeBtnText}>Type</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
 
         {SMS_ENABLED && smsPendingCount > 0 && (
           <Animated.View entering={FadeInDown.delay(125).duration(400)}>
@@ -497,6 +527,62 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
+  },
+  welcomeCard: {
+    backgroundColor: colors.primary + '08',
+    borderRadius: 16,
+    padding: 18,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '22',
+    alignItems: 'center',
+    gap: 10,
+  },
+  welcomeIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primary + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeTitle: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  welcomeSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 4,
+  },
+  welcomeActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+    width: '100%',
+  },
+  welcomeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  welcomeBtnAccent: {
+    backgroundColor: colors.accent,
+  },
+  welcomeBtnText: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
   smsBanner: {
     flexDirection: 'row',
