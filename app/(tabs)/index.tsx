@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -64,13 +64,10 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadExpenses();
+      const interval = setInterval(loadExpenses, 30000);
+      return () => clearInterval(interval);
     }, [loadExpenses])
   );
-
-  useEffect(() => {
-    const interval = setInterval(loadExpenses, 30000);
-    return () => clearInterval(interval);
-  }, [loadExpenses]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -121,31 +118,26 @@ export default function HomeScreen() {
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 router.push('/voice-expense');
               }}
-              style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.92 }] }]}
+              style={({ pressed }) => [styles.voicePill, pressed && { opacity: 0.9, transform: [{ scale: 0.96 }] }]}
               testID="add-voice"
               accessibilityLabel="Record voice expense"
             >
-              <Ionicons name="mic" size={22} color="#fff" />
-              <View style={styles.plusBadge}>
-                <Ionicons name="add" size={10} color="#fff" />
-              </View>
+              <Ionicons name="mic" size={18} color="#fff" />
+              <Text style={styles.voicePillText}>Voice</Text>
             </Pressable>
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 router.push('/add-expense');
               }}
-              style={({ pressed }) => [styles.headerBtn, styles.headerBtnAccent, pressed && { opacity: 0.8, transform: [{ scale: 0.92 }] }]}
+              style={({ pressed }) => [styles.manualBtn, pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] }]}
               testID="add-manual"
               accessibilityLabel="Type expense manually"
             >
-              <Ionicons name="create" size={20} color="#fff" />
-              <View style={styles.plusBadge}>
-                <Ionicons name="add" size={10} color="#fff" />
-              </View>
+              <Ionicons name="add" size={22} color={colors.primary} />
             </Pressable>
           </View>
         </View>
@@ -201,30 +193,27 @@ export default function HomeScreen() {
             <Text style={styles.welcomeSubtitle}>
               Log your first expense to start seeing charts, budgets, and your weekly story.
             </Text>
-            <View style={styles.welcomeActions}>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/voice-expense');
-                }}
-                style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
-                testID="welcome-add-voice"
-              >
-                <Ionicons name="mic" size={18} color="#fff" />
-                <Text style={styles.welcomeBtnText}>Record</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/add-expense');
-                }}
-                style={({ pressed }) => [styles.welcomeBtn, styles.welcomeBtnAccent, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
-                testID="welcome-add-manual"
-              >
-                <Ionicons name="create" size={18} color="#fff" />
-                <Text style={styles.welcomeBtnText}>Type</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push('/voice-expense');
+              }}
+              style={({ pressed }) => [styles.welcomePrimaryBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+              testID="welcome-add-voice"
+            >
+              <Ionicons name="mic" size={20} color="#fff" />
+              <Text style={styles.welcomePrimaryBtnText}>Try voice expense</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/add-expense');
+              }}
+              style={({ pressed }) => [styles.welcomeSecondaryBtn, pressed && { opacity: 0.7 }]}
+              testID="welcome-add-manual"
+            >
+              <Text style={styles.welcomeSecondaryBtnText}>Or type it manually</Text>
+            </Pressable>
           </Animated.View>
         )}
 
@@ -259,7 +248,16 @@ export default function HomeScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(175).duration(500)}>
-          {new Date().getDay() === 0 ? (
+          {(() => {
+            const dayOfWeek = new Date().getDay();
+            const isSunday = dayOfWeek === 0;
+            const daysUntilSunday = isSunday ? 0 : 7 - dayOfWeek;
+            const subtitle = isSunday
+              ? 'Tap to see your spending story'
+              : daysUntilSunday === 1
+                ? 'Drops tomorrow — sneak a peek'
+                : `${daysUntilSunday} days to go — sneak a peek`;
+            return (
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -267,30 +265,24 @@ export default function HomeScreen() {
               }}
               style={({ pressed }) => [
                 styles.reportBanner,
+                !isSunday && styles.reportBannerMuted,
                 pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
               ]}
+              testID="weekly-hisaab-banner"
             >
               <View style={styles.reportBannerLeft}>
-                <Text style={styles.reportBannerEmoji}>{'\u2728'}</Text>
+                <Text style={styles.reportBannerEmoji}>{isSunday ? '\u2728' : '\uD83D\uDCC5'}</Text>
                 <View>
-                  <Text style={styles.reportBannerTitle}>Your Weekly Hisaab is ready</Text>
-                  <Text style={styles.reportBannerSub}>Tap to see your spending story</Text>
+                  <Text style={styles.reportBannerTitle}>
+                    {isSunday ? 'Your Weekly Hisaab is ready' : 'Weekly Hisaab'}
+                  </Text>
+                  <Text style={styles.reportBannerSub}>{subtitle}</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
             </Pressable>
-          ) : (
-            <View style={[styles.reportBanner, { opacity: 0.6 }]}>
-              <View style={styles.reportBannerLeft}>
-                <Text style={styles.reportBannerEmoji}>{'\uD83D\uDCC5'}</Text>
-                <View>
-                  <Text style={styles.reportBannerTitle}>Weekly Hisaab</Text>
-                  <Text style={styles.reportBannerSub}>Available on Sunday</Text>
-                </View>
-              </View>
-              <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.3)" />
-            </View>
-          )}
+            );
+          })()}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(225).duration(500)}>
@@ -381,23 +373,41 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
   },
-  headerBtn: {
+  voicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  voicePillText: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  manualBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primary + '12',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-  },
-  plusBadge: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-  },
-  headerBtnAccent: {
-    backgroundColor: colors.accent,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -509,6 +519,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
   },
+  reportBannerMuted: {
+    backgroundColor: colors.primaryDark,
+    opacity: 0.85,
+  },
   reportBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -560,29 +574,40 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 4,
   },
-  welcomeActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
-    width: '100%',
-  },
-  welcomeBtn: {
-    flex: 1,
+  welcomePrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 8,
+    alignSelf: 'stretch',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  welcomeBtnAccent: {
-    backgroundColor: colors.accent,
-  },
-  welcomeBtnText: {
-    fontSize: 14,
+  welcomePrimaryBtnText: {
+    fontSize: 15,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  welcomeSecondaryBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  welcomeSecondaryBtnText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: colors.primary,
   },
   smsBanner: {
     flexDirection: 'row',

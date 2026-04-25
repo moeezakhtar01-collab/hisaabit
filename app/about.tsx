@@ -11,8 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import Constants from 'expo-constants';
 import { useColors } from '@/lib/theme-context';
 import type { lightColors } from '@/constants/colors';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 const FEATURES = [
   { icon: 'wallet-outline' as const, label: 'Track daily expenses in PKR' },
@@ -60,7 +63,7 @@ export default function AboutScreen() {
           </View>
           <Text style={styles.appName}>Hisaabit</Text>
           <Text style={styles.tagline}>Personal Finance Tracker for Pakistan</Text>
-          <Text style={styles.version}>Version 1.0.0</Text>
+          <Text style={styles.version}>Version {APP_VERSION}</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.card}>
@@ -104,7 +107,7 @@ export default function AboutScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.madeInPakistan}>
-          <Text style={styles.madeInText}>Hisaabit v1.0.0</Text>
+          <Text style={styles.madeInText}>Hisaabit v{APP_VERSION}</Text>
         </Animated.View>
       </ScrollView>
     </View>

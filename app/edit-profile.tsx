@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,8 @@ export default function EditProfileScreen() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const newPasswordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
@@ -122,8 +124,28 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.card}>
-          <Text style={styles.sectionLabel}>Name</Text>
+        <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.summaryCard}>
+          <View style={styles.summaryAvatar}>
+            <Text style={styles.summaryAvatarText}>
+              {(user?.name || 'U').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.summaryInfo}>
+            <Text style={styles.summaryName} numberOfLines={1}>
+              {user?.name || 'User'}
+            </Text>
+            <View style={styles.summaryEmailRow}>
+              <Ionicons name="mail-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.summaryEmail} numberOfLines={1}>
+                {user?.email || ''}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.card}>
+          <Text style={styles.sectionLabel}>Display name</Text>
+          <Text style={styles.sectionHint}>This is how Hisaabit greets you.</Text>
           <View style={styles.nameRow}>
             <TextInput
               style={[styles.input, styles.nameInput]}
@@ -136,15 +158,17 @@ export default function EditProfileScreen() {
               placeholder="Your name"
               placeholderTextColor={colors.textSecondary}
               autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleUpdateName}
               testID="name-input"
             />
             <Pressable
               onPress={handleUpdateName}
-              disabled={nameSaving}
+              disabled={nameSaving || name.trim() === (user?.name || '')}
               style={({ pressed }) => [
                 styles.iconButton,
                 pressed && { opacity: 0.7 },
-                nameSaving && { opacity: 0.5 },
+                (nameSaving || name.trim() === (user?.name || '')) && { opacity: 0.4 },
               ]}
               testID="save-name-button"
             >
@@ -152,57 +176,83 @@ export default function EditProfileScreen() {
             </Pressable>
           </View>
           {nameSuccess ? (
-            <Text style={styles.successText}>{nameSuccess}</Text>
+            <View style={styles.feedbackRow}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.successText}>{nameSuccess}</Text>
+            </View>
           ) : null}
           {nameError ? (
-            <Text style={styles.errorText}>{nameError}</Text>
+            <View style={styles.feedbackRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.errorText}>{nameError}</Text>
+            </View>
           ) : null}
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.card}>
-          <Text style={styles.sectionLabel}>Change Password</Text>
-          <TextInput
-            style={styles.input}
-            value={currentPassword}
-            onChangeText={(text) => {
-              setCurrentPassword(text);
-              setPasswordError('');
-              setPasswordSuccess('');
-            }}
-            placeholder="Current password"
-            placeholderTextColor={colors.textSecondary}
-            secureTextEntry
-            autoCapitalize="none"
-            testID="current-password-input"
-          />
-          <TextInput
-            style={styles.input}
-            value={newPassword}
-            onChangeText={(text) => {
-              setNewPassword(text);
-              setPasswordError('');
-              setPasswordSuccess('');
-            }}
-            placeholder="New password (min 6 characters)"
-            placeholderTextColor={colors.textSecondary}
-            secureTextEntry
-            autoCapitalize="none"
-            testID="new-password-input"
-          />
-          <TextInput
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              setPasswordError('');
-              setPasswordSuccess('');
-            }}
-            placeholder="Confirm new password"
-            placeholderTextColor={colors.textSecondary}
-            secureTextEntry
-            autoCapitalize="none"
-            testID="confirm-password-input"
-          />
+        <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.card}>
+          <Text style={styles.sectionLabel}>Change password</Text>
+          <Text style={styles.sectionHint}>Use at least 6 characters. Mix in numbers for extra strength.</Text>
+          <View style={styles.passwordInputWrap}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} style={styles.passwordIcon} />
+            <TextInput
+              style={styles.passwordInput}
+              value={currentPassword}
+              onChangeText={(text) => {
+                setCurrentPassword(text);
+                setPasswordError('');
+                setPasswordSuccess('');
+              }}
+              placeholder="Current password"
+              placeholderTextColor={colors.textSecondary}
+              secureTextEntry
+              autoCapitalize="none"
+              returnKeyType="next"
+              onSubmitEditing={() => newPasswordRef.current?.focus()}
+              blurOnSubmit={false}
+              testID="current-password-input"
+            />
+          </View>
+          <View style={styles.passwordInputWrap}>
+            <Ionicons name="key-outline" size={18} color={colors.textSecondary} style={styles.passwordIcon} />
+            <TextInput
+              ref={newPasswordRef}
+              style={styles.passwordInput}
+              value={newPassword}
+              onChangeText={(text) => {
+                setNewPassword(text);
+                setPasswordError('');
+                setPasswordSuccess('');
+              }}
+              placeholder="New password (min 6 characters)"
+              placeholderTextColor={colors.textSecondary}
+              secureTextEntry
+              autoCapitalize="none"
+              returnKeyType="next"
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+              blurOnSubmit={false}
+              testID="new-password-input"
+            />
+          </View>
+          <View style={styles.passwordInputWrap}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.textSecondary} style={styles.passwordIcon} />
+            <TextInput
+              ref={confirmPasswordRef}
+              style={styles.passwordInput}
+              value={confirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                setPasswordError('');
+                setPasswordSuccess('');
+              }}
+              placeholder="Confirm new password"
+              placeholderTextColor={colors.textSecondary}
+              secureTextEntry
+              autoCapitalize="none"
+              returnKeyType="go"
+              onSubmitEditing={handleChangePassword}
+              testID="confirm-password-input"
+            />
+          </View>
           <Pressable
             onPress={handleChangePassword}
             disabled={passwordSaving}
@@ -213,14 +263,78 @@ export default function EditProfileScreen() {
             ]}
             testID="save-password-button"
           >
-            <Ionicons name="checkmark" size={22} color="#fff" />
+            <Ionicons name="lock-closed" size={18} color="#fff" />
+            <Text style={styles.saveButtonText}>Update password</Text>
           </Pressable>
           {passwordSuccess ? (
-            <Text style={styles.successText}>{passwordSuccess}</Text>
+            <View style={styles.feedbackRow}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.successText}>{passwordSuccess}</Text>
+            </View>
           ) : null}
           {passwordError ? (
-            <Text style={styles.errorText}>{passwordError}</Text>
+            <View style={styles.feedbackRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.errorText}>{passwordError}</Text>
+            </View>
           ) : null}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(240).duration(400)} style={styles.shortcutCard}>
+          <Text style={styles.sectionLabel}>Manage</Text>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/notifications');
+            }}
+            style={({ pressed }) => [styles.shortcutRow, pressed && { opacity: 0.7 }]}
+            testID="shortcut-notifications"
+          >
+            <View style={[styles.shortcutIconBg, { backgroundColor: '#3B82F618' }]}>
+              <Ionicons name="notifications-outline" size={18} color="#3B82F6" />
+            </View>
+            <View style={styles.shortcutTextWrap}>
+              <Text style={styles.shortcutLabel}>Notification preferences</Text>
+              <Text style={styles.shortcutSub}>Daily reminders, monthly summary, budget alerts</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
+          <View style={styles.shortcutDivider} />
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/privacy');
+            }}
+            style={({ pressed }) => [styles.shortcutRow, pressed && { opacity: 0.7 }]}
+            testID="shortcut-privacy"
+          >
+            <View style={[styles.shortcutIconBg, { backgroundColor: '#8B5CF618' }]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#8B5CF6" />
+            </View>
+            <View style={styles.shortcutTextWrap}>
+              <Text style={styles.shortcutLabel}>Privacy &amp; data</Text>
+              <Text style={styles.shortcutSub}>Export, delete, or review what we store</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
+          <View style={styles.shortcutDivider} />
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/help-faq');
+            }}
+            style={({ pressed }) => [styles.shortcutRow, pressed && { opacity: 0.7 }]}
+            testID="shortcut-help"
+          >
+            <View style={[styles.shortcutIconBg, { backgroundColor: '#F59E0B18' }]}>
+              <Ionicons name="help-circle-outline" size={18} color="#F59E0B" />
+            </View>
+            <View style={styles.shortcutTextWrap}>
+              <Text style={styles.shortcutLabel}>Help &amp; FAQ</Text>
+              <Text style={styles.shortcutSub}>How voice input works, common questions</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -291,10 +405,16 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 16,
     marginTop: 4,
+  },
+  saveButtonText: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
   successText: {
     fontSize: 13,
@@ -305,5 +425,121 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: colors.danger,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  summaryAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryAvatarText: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  summaryInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  summaryName: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
+  },
+  summaryEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  summaryEmail: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
+  },
+  sectionHint: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
+    marginTop: -4,
+    lineHeight: 18,
+  },
+  passwordInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  passwordIcon: {
+    marginRight: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    color: colors.text,
+    height: '100%',
+  },
+  shortcutCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 4,
+  },
+  shortcutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  shortcutIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutTextWrap: {
+    flex: 1,
+  },
+  shortcutLabel: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.text,
+  },
+  shortcutSub: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  shortcutDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginLeft: 48,
   },
 });

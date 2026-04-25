@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Switch,
   Platform,
   Alert,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -94,6 +95,30 @@ function formatTime(hour: number, minute: number): string {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
 
+interface TimeOption {
+  hour: number;
+  minute: number;
+  label: string;
+}
+
+const TIME_OPTIONS: TimeOption[] = HOURS.flatMap(hour =>
+  MINUTES.map(minute => ({
+    hour,
+    minute,
+    label: formatTime(hour, minute),
+  }))
+);
+
+const TIME_ROW_HEIGHT = 44;
+
+const timeKeyExtractor = (item: TimeOption) => `${item.hour}-${item.minute}`;
+
+const timeGetItemLayout = (_data: ArrayLike<TimeOption> | null | undefined, index: number) => ({
+  length: TIME_ROW_HEIGHT,
+  offset: TIME_ROW_HEIGHT * index,
+  index,
+});
+
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
@@ -165,6 +190,13 @@ export default function NotificationsScreen() {
     });
     setShowTimePicker(false);
   }, [savePrefs]);
+
+  const initialTimeIndex = useMemo(() => {
+    const idx = TIME_OPTIONS.findIndex(
+      t => t.hour === prefs.reminderHour && t.minute === prefs.reminderMinute,
+    );
+    return idx >= 0 ? Math.max(0, idx - 2) : 0;
+  }, [prefs.reminderHour, prefs.reminderMinute]);
 
   return (
     <View style={styles.screen}>
@@ -281,31 +313,36 @@ export default function NotificationsScreen() {
           <Animated.View entering={FadeInDown.duration(300)}>
             <Text style={styles.sectionLabel}>Select Time</Text>
             <View style={styles.card}>
-              <ScrollView
+              <FlatList
+                data={TIME_OPTIONS}
+                keyExtractor={timeKeyExtractor}
                 style={styles.timePickerScroll}
-                contentContainerStyle={styles.timePickerContent}
                 showsVerticalScrollIndicator={false}
-              >
-                {HOURS.map(hour =>
-                  MINUTES.map(minute => {
-                    const isSelected = prefs.reminderHour === hour && prefs.reminderMinute === minute;
-                    return (
-                      <Pressable
-                        key={`${hour}-${minute}`}
-                        onPress={() => handleTimeSelect(hour, minute)}
-                        style={[styles.timeOption, isSelected && styles.timeOptionSelected]}
-                      >
-                        <Text style={[styles.timeOptionText, isSelected && styles.timeOptionTextSelected]}>
-                          {formatTime(hour, minute)}
-                        </Text>
-                        {isSelected ? (
-                          <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                        ) : null}
-                      </Pressable>
-                    );
-                  })
-                )}
-              </ScrollView>
+                nestedScrollEnabled
+                initialNumToRender={12}
+                windowSize={5}
+                maxToRenderPerBatch={12}
+                removeClippedSubviews
+                getItemLayout={timeGetItemLayout}
+                initialScrollIndex={initialTimeIndex}
+                renderItem={({ item }) => {
+                  const isSelected =
+                    prefs.reminderHour === item.hour && prefs.reminderMinute === item.minute;
+                  return (
+                    <Pressable
+                      onPress={() => handleTimeSelect(item.hour, item.minute)}
+                      style={[styles.timeOption, isSelected && styles.timeOptionSelected]}
+                    >
+                      <Text style={[styles.timeOptionText, isSelected && styles.timeOptionTextSelected]}>
+                        {item.label}
+                      </Text>
+                      {isSelected ? (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      ) : null}
+                    </Pressable>
+                  );
+                }}
+              />
             </View>
           </Animated.View>
         ) : null}
@@ -438,7 +475,7 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: TIME_ROW_HEIGHT,
   },
   timeOptionSelected: {
     backgroundColor: colors.primary + '08',

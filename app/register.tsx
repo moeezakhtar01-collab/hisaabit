@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -118,6 +120,9 @@ export default function RegisterScreen() {
                     placeholder="Your name"
                     placeholderTextColor={colors.textSecondary + '80'}
                     autoCapitalize="words"
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    blurOnSubmit={false}
                     testID="register-name"
                   />
                 </View>
@@ -128,6 +133,7 @@ export default function RegisterScreen() {
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                   <TextInput
+                    ref={emailRef}
                     style={styles.input}
                     value={email}
                     onChangeText={setEmail}
@@ -136,6 +142,9 @@ export default function RegisterScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    blurOnSubmit={false}
                     testID="register-email"
                   />
                 </View>
@@ -146,12 +155,15 @@ export default function RegisterScreen() {
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                   <TextInput
+                    ref={passwordRef}
                     style={styles.input}
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Min. 6 characters"
                     placeholderTextColor={colors.textSecondary + '80'}
                     secureTextEntry={!showPassword}
+                    returnKeyType="go"
+                    onSubmitEditing={handleRegister}
                     testID="register-password"
                   />
                   <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
@@ -183,12 +195,14 @@ export default function RegisterScreen() {
             </>
           )}
 
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Already have an account?</Text>
-            <Pressable onPress={() => router.replace('/login')}>
-              <Text style={styles.switchLink}>Log In</Text>
-            </Pressable>
-          </View>
+          {!successMessage && (
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Already have an account?</Text>
+              <Pressable onPress={() => router.replace('/login')}>
+                <Text style={styles.switchLink}>Log In</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

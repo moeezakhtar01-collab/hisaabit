@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -83,6 +83,7 @@ export default function AddExpenseScreen() {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const dateOptions = useMemo(() => generateDateOptions(), []);
 
   const handleAmountChange = (text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '');
@@ -292,7 +293,7 @@ export default function AddExpenseScreen() {
               </Pressable>
             </View>
             <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
-              {generateDateOptions().map((date, index) => {
+              {dateOptions.map((date, index) => {
                 const label = formatDateLabel(date);
                 const isSelected = date.toDateString() === selectedDate.toDateString();
                 return (

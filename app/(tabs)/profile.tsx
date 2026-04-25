@@ -1,18 +1,67 @@
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, ScrollView, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import Constants from 'expo-constants';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { SMS_ENABLED, STORE_ENABLED, NOTIFICATION_LISTENER_ENABLED } from '@/lib/feature-flags';
+import { Expense, getExpenses, getTotalExpenses, formatPKR } from '@/lib/storage';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+function computeStreak(expenses: Expense[]): number {
+  if (expenses.length === 0) return 0;
+  const days = new Set<string>();
+  for (const e of expenses) {
+    const d = new Date(e.date);
+    days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  }
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  // If today has no expense, the streak still counts back from yesterday
+  // so users don't lose their streak just because the day isn't over yet.
+  const todayKey = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+  if (!days.has(todayKey)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  while (true) {
+    const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+    if (!days.has(key)) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { colors, isDark, toggleTheme } = useTheme();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getExpenses().then(all => {
+        if (active) setExpenses(all);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const stats = useMemo(() => ({
+    count: expenses.length,
+    lifetime: getTotalExpenses(expenses),
+    streak: computeStreak(expenses),
+  }), [expenses]);
 
   const navigateTo = (screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -63,6 +112,38 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{user?.name || 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email || ''}</Text>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBg, { backgroundColor: colors.primary + '15' }]}>
+              <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.statValue}>{stats.count}</Text>
+            <Text style={styles.statLabel}>{stats.count === 1 ? 'Expense' : 'Expenses'}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBg, { backgroundColor: colors.warning + '20' }]}>
+              <Ionicons name="flame" size={18} color={colors.warning} />
+            </View>
+            <Text style={styles.statValue}>{stats.streak}</Text>
+            <Text style={styles.statLabel}>{stats.streak === 1 ? 'Day streak' : 'Day streak'}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBg, { backgroundColor: colors.accent + '20' }]}>
+              <Ionicons name="wallet-outline" size={18} color={colors.accent} />
+            </View>
+            <Text
+              style={styles.statValue}
+              adjustsFontSizeToFit
+              numberOfLines={1}
+            >
+              {formatPKR(stats.lifetime)}
+            </Text>
+            <Text style={styles.statLabel}>Tracked</Text>
+          </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.section}>
@@ -209,7 +290,7 @@ export default function ProfileScreen() {
           </Pressable>
         </Animated.View>
 
-        <Text style={styles.versionText}>Hisaabit v1.0.0</Text>
+        <Text style={styles.versionText}>Hisaabit v{APP_VERSION}</Text>
       </ScrollView>
     </View>
   );
@@ -270,6 +351,48 @@ const createStyles = (colors: typeof import('@/constants/colors').lightColors) =
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingVertical: 16,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    gap: 4,
+  },
+  statIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    color: colors.textSecondary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 8,
   },
   section: {
     gap: 10,

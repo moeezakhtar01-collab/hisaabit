@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import type { ThemeColors } from '@/constants/colors';
 import ExpenseCard from '@/components/ExpenseCard';
@@ -75,6 +75,7 @@ function formatDayLabel(date: Date): string {
 }
 
 function groupByMonth(expenses: Expense[]): PeriodGroup[] {
+  if (expenses.length === 0) return [];
   const now = new Date();
   const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const groups = new Map<string, Expense[]>();
@@ -104,6 +105,7 @@ function groupByMonth(expenses: Expense[]): PeriodGroup[] {
 }
 
 function groupByWeek(expenses: Expense[]): PeriodGroup[] {
+  if (expenses.length === 0) return [];
   const now = new Date();
   const currentMonday = getMonday(now);
   const currentKey = currentMonday.toISOString().slice(0, 10);
@@ -132,6 +134,7 @@ function groupByWeek(expenses: Expense[]): PeriodGroup[] {
 }
 
 function groupByDay(expenses: Expense[]): PeriodGroup[] {
+  if (expenses.length === 0) return [];
   const now = new Date();
   const todayKey = now.toISOString().slice(0, 10);
   const groups = new Map<string, { date: Date; expenses: Expense[] }>();
@@ -179,14 +182,13 @@ export default function HistoryScreen() {
     setExpenses(all);
   }, []);
 
-  useEffect(() => {
-    loadExpenses();
-  }, [loadExpenses]);
-
-  useEffect(() => {
-    const interval = setInterval(loadExpenses, 30000);
-    return () => clearInterval(interval);
-  }, [loadExpenses]);
+  useFocusEffect(
+    useCallback(() => {
+      loadExpenses();
+      const interval = setInterval(loadExpenses, 30000);
+      return () => clearInterval(interval);
+    }, [loadExpenses])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -356,7 +358,7 @@ export default function HistoryScreen() {
         </View>
       </View>
 
-      {expandedPeriod && (
+      {expandedPeriod && groups.length > 0 && (
         <View style={styles.filterRow}>
           <ScrollView
             horizontal
@@ -380,6 +382,19 @@ export default function HistoryScreen() {
                 onPress={() => setSelectedCategory(cat.key)}
               />
             ))}
+            {selectedCategory && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedCategory(null);
+                }}
+                style={({ pressed }) => [styles.clearFilterChip, pressed && { opacity: 0.7 }]}
+                testID="history-clear-filter"
+              >
+                <Ionicons name="close" size={14} color={colors.danger} />
+                <Text style={styles.clearFilterText}>Clear</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </View>
       )}
@@ -494,9 +509,37 @@ export default function HistoryScreen() {
         }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>No expense history</Text>
-            <Text style={styles.emptySubText}>Your expenses will appear here</Text>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="receipt-outline" size={36} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyText}>Your history starts here</Text>
+            <Text style={styles.emptySubText}>
+              Once you log expenses, you&apos;ll see your monthly, weekly, and daily totals neatly organised on this screen.
+            </Text>
+            <View style={styles.emptyCtaRow}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/add-expense');
+                }}
+                style={({ pressed }) => [styles.emptyCtaPrimary, pressed && { opacity: 0.85 }]}
+                testID="history-empty-add"
+              >
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.emptyCtaPrimaryText}>Add expense</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/voice-expense');
+                }}
+                style={({ pressed }) => [styles.emptyCtaSecondary, pressed && { opacity: 0.85 }]}
+                testID="history-empty-voice"
+              >
+                <Ionicons name="mic-outline" size={18} color={colors.primary} />
+                <Text style={styles.emptyCtaSecondaryText}>Or just say it</Text>
+              </Pressable>
+            </View>
           </View>
         }
       />
@@ -887,24 +930,87 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   emptyContainer: {
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 32,
+    padding: 28,
     marginHorizontal: 16,
-    marginTop: 20,
+    marginTop: 24,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyText: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
     color: colors.text,
+    textAlign: 'center',
   },
   emptySubText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 320,
+  },
+  emptyCtaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  emptyCtaPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  emptyCtaPrimaryText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
+  },
+  emptyCtaSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary + '12',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  emptyCtaSecondaryText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.primary,
+  },
+  clearFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.danger + '12',
+    borderWidth: 1,
+    borderColor: colors.danger + '30',
+  },
+  clearFilterText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.danger,
   },
   modalOverlay: {
     flex: 1,

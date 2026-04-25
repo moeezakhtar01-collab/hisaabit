@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -103,6 +103,7 @@ export default function VoiceExpenseScreen() {
   const [editingValue, setEditingValue] = useState('');
   const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null);
   const [datePickerIndex, setDatePickerIndex] = useState<number | null>(null);
+  const dateOptions = useMemo(() => generateDateOptions(), []);
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -182,7 +183,7 @@ export default function VoiceExpenseScreen() {
         setRecordingDuration(d => d + 1);
       }, 1000);
     } catch (err) {
-      console.error('Failed to start recording', err);
+      if (__DEV__) console.error('Failed to start recording', err);
       Alert.alert('Error', 'Could not start recording. Please check microphone access.');
     }
   };
@@ -271,7 +272,7 @@ export default function VoiceExpenseScreen() {
       setState('result');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      console.error('Voice processing error:', err);
+      if (__DEV__) console.error('Voice processing error:', err);
       setState('idle');
       Alert.alert('Could Not Process', err.message || 'Something went wrong. Please try again.');
     }
@@ -697,7 +698,7 @@ export default function VoiceExpenseScreen() {
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Select Date</Text>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalCategoryScroll}>
-              {generateDateOptions().map((dateStr) => {
+              {dateOptions.map((dateStr) => {
                 const isSelected = datePickerIndex !== null && result?.expenses[datePickerIndex]?.date === dateStr;
                 return (
                   <Pressable

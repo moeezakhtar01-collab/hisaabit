@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
@@ -10,9 +11,10 @@ interface BudgetBarProps {
   spent: number;
   limit: number;
   index: number;
+  onDelete?: () => void;
 }
 
-export default function BudgetBar({ category, spent, limit, index }: BudgetBarProps) {
+export default function BudgetBar({ category, spent, limit, index, onDelete }: BudgetBarProps) {
   const colors = useColors();
   const styles = createStyles(colors);
   const percentage = Math.min((spent / limit) * 100, 100);
@@ -36,7 +38,23 @@ export default function BudgetBar({ category, spent, limit, index }: BudgetBarPr
           <Text style={[styles.amountText, isOverBudget && styles.overBudgetText]}>
             {formatPKR(spent)} / {formatPKR(limit)}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+          {onDelete ? (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onDelete();
+              }}
+              hitSlop={10}
+              style={({ pressed }) => [styles.deleteIconBtn, pressed && { opacity: 0.6 }]}
+              accessibilityLabel="Delete budget"
+              testID={`budget-delete-${category}`}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.textSecondary} />
+            </Pressable>
+          ) : (
+            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+          )}
         </View>
       </View>
       <View style={styles.barBackground}>
@@ -95,7 +113,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   rightRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+  },
+  deleteIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   amountText: {
     fontSize: 12,

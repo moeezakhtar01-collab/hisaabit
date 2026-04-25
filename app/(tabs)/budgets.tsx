@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   TextInput,
   Alert,
   Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/lib/theme-context';
@@ -77,14 +79,13 @@ export default function BudgetsScreen() {
     setBudgetSettingsState(bs);
   }, [currentMonth]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      const interval = setInterval(loadData, 30000);
+      return () => clearInterval(interval);
+    }, [loadData])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -494,6 +495,7 @@ export default function BudgetsScreen() {
                   spent={getTotalForCategory(monthExpenses, budget.category)}
                   limit={budget.limit}
                   index={index}
+                  onDelete={() => handleDeleteBudget(budget.category)}
                 />
               </Pressable>
             ))
@@ -603,41 +605,52 @@ export default function BudgetsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.monthlyModalContent}>
-            <View style={styles.monthlyModalIcon}>
-              <Ionicons name="wallet" size={40} color={colors.primary} />
-            </View>
-            <Text style={styles.monthlyModalLabel}>
-              How much do you want to spend this month?
-            </Text>
-            <Text style={styles.monthlyModalSub}>{getMonthLabel(currentMonth)}</Text>
-
-            <View style={styles.monthlyInputRow}>
-              <Text style={styles.currencyPrefix}>Rs.</Text>
-              <TextInput
-                style={styles.monthlyInput}
-                value={monthlyAmount}
-                onChangeText={setMonthlyAmount}
-                keyboardType="numeric"
-                placeholder="50,000"
-                placeholderTextColor={colors.border}
-                autoFocus
-              />
-            </View>
-
-            <Pressable
-              onPress={handleSaveMonthlyBudget}
-              style={({ pressed }) => [
-                styles.saveButton,
-                { marginTop: 24 },
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.monthlyModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>
-                {monthlyLimit > 0 ? 'Update Budget' : 'Set Budget'}
+              <View style={styles.monthlyModalIcon}>
+                <Ionicons name="wallet" size={40} color={colors.primary} />
+              </View>
+              <Text style={styles.monthlyModalLabel}>
+                How much do you want to spend this month?
               </Text>
-            </Pressable>
-          </View>
+              <Text style={styles.monthlyModalSub}>{getMonthLabel(currentMonth)}</Text>
+
+              <View style={styles.monthlyInputRow}>
+                <Text style={styles.currencyPrefix}>Rs.</Text>
+                <TextInput
+                  style={styles.monthlyInput}
+                  value={monthlyAmount}
+                  onChangeText={setMonthlyAmount}
+                  keyboardType="numeric"
+                  placeholder="50,000"
+                  placeholderTextColor={colors.border}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveMonthlyBudget}
+                />
+              </View>
+
+              <Pressable
+                onPress={handleSaveMonthlyBudget}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  { marginTop: 24, alignSelf: 'stretch' },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}
+              >
+                <Text style={styles.saveButtonText}>
+                  {monthlyLimit > 0 ? 'Update Budget' : 'Set Budget'}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -657,52 +670,64 @@ export default function BudgetsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.monthlyModalContent}>
-            <View style={[styles.monthlyModalIcon, { backgroundColor: colors.warning + '12' }]}>
-              <Ionicons name="today" size={40} color={colors.warning} />
-            </View>
-            <Text style={styles.monthlyModalLabel}>
-              How much do you want to spend per day?
-            </Text>
-
-            <View style={styles.monthlyInputRow}>
-              <Text style={styles.currencyPrefix}>Rs.</Text>
-              <TextInput
-                style={styles.monthlyInput}
-                value={dailyAmount}
-                onChangeText={setDailyAmount}
-                keyboardType="numeric"
-                placeholder="2,000"
-                placeholderTextColor={colors.border}
-                autoFocus
-              />
-            </View>
-
-            <Pressable
-              onPress={handleSaveDailyBudget}
-              style={({ pressed }) => [
-                styles.saveButton,
-                { marginTop: 24 },
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.monthlyModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>
-                {budgetSettings?.dailyLimit ? 'Update Budget' : 'Set Budget'}
+              <View style={[styles.monthlyModalIcon, { backgroundColor: colors.warning + '12' }]}>
+                <Ionicons name="today" size={40} color={colors.warning} />
+              </View>
+              <Text style={styles.monthlyModalLabel}>
+                How much do you want to spend per day?
               </Text>
-            </Pressable>
-            {budgetSettings?.dailyLimit ? (
+
+              <View style={styles.monthlyInputRow}>
+                <Text style={styles.currencyPrefix}>Rs.</Text>
+                <TextInput
+                  style={styles.monthlyInput}
+                  value={dailyAmount}
+                  onChangeText={setDailyAmount}
+                  keyboardType="numeric"
+                  placeholder="2,000"
+                  placeholderTextColor={colors.border}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveDailyBudget}
+                />
+              </View>
+
               <Pressable
-                onPress={handleRemoveDailyBudget}
+                onPress={handleSaveDailyBudget}
                 style={({ pressed }) => [
-                  styles.deleteButton,
+                  styles.saveButton,
+                  { marginTop: 24, alignSelf: 'stretch' },
                   pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                <Text style={styles.deleteButtonText}>Remove Daily Budget</Text>
+                <Text style={styles.saveButtonText}>
+                  {budgetSettings?.dailyLimit ? 'Update Budget' : 'Set Budget'}
+                </Text>
               </Pressable>
-            ) : null}
-          </View>
+              {budgetSettings?.dailyLimit ? (
+                <Pressable
+                  onPress={handleRemoveDailyBudget}
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    { alignSelf: 'stretch' },
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  <Text style={styles.deleteButtonText}>Remove Daily Budget</Text>
+                </Pressable>
+              ) : null}
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -722,52 +747,64 @@ export default function BudgetsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.monthlyModalContent}>
-            <View style={[styles.monthlyModalIcon, { backgroundColor: colors.accent + '12' }]}>
-              <Ionicons name="calendar" size={40} color={colors.accent} />
-            </View>
-            <Text style={styles.monthlyModalLabel}>
-              How much do you want to spend per week?
-            </Text>
-
-            <View style={styles.monthlyInputRow}>
-              <Text style={styles.currencyPrefix}>Rs.</Text>
-              <TextInput
-                style={styles.monthlyInput}
-                value={weeklyAmount}
-                onChangeText={setWeeklyAmount}
-                keyboardType="numeric"
-                placeholder="10,000"
-                placeholderTextColor={colors.border}
-                autoFocus
-              />
-            </View>
-
-            <Pressable
-              onPress={handleSaveWeeklyBudget}
-              style={({ pressed }) => [
-                styles.saveButton,
-                { marginTop: 24 },
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.monthlyModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>
-                {budgetSettings?.weeklyLimit ? 'Update Budget' : 'Set Budget'}
+              <View style={[styles.monthlyModalIcon, { backgroundColor: colors.accent + '12' }]}>
+                <Ionicons name="calendar" size={40} color={colors.accent} />
+              </View>
+              <Text style={styles.monthlyModalLabel}>
+                How much do you want to spend per week?
               </Text>
-            </Pressable>
-            {budgetSettings?.weeklyLimit ? (
+
+              <View style={styles.monthlyInputRow}>
+                <Text style={styles.currencyPrefix}>Rs.</Text>
+                <TextInput
+                  style={styles.monthlyInput}
+                  value={weeklyAmount}
+                  onChangeText={setWeeklyAmount}
+                  keyboardType="numeric"
+                  placeholder="10,000"
+                  placeholderTextColor={colors.border}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveWeeklyBudget}
+                />
+              </View>
+
               <Pressable
-                onPress={handleRemoveWeeklyBudget}
+                onPress={handleSaveWeeklyBudget}
                 style={({ pressed }) => [
-                  styles.deleteButton,
+                  styles.saveButton,
+                  { marginTop: 24, alignSelf: 'stretch' },
                   pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                <Text style={styles.deleteButtonText}>Remove Weekly Budget</Text>
+                <Text style={styles.saveButtonText}>
+                  {budgetSettings?.weeklyLimit ? 'Update Budget' : 'Set Budget'}
+                </Text>
               </Pressable>
-            ) : null}
-          </View>
+              {budgetSettings?.weeklyLimit ? (
+                <Pressable
+                  onPress={handleRemoveWeeklyBudget}
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    { alignSelf: 'stretch' },
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  <Text style={styles.deleteButtonText}>Remove Weekly Budget</Text>
+                </Pressable>
+              ) : null}
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
