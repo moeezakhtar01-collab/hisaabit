@@ -191,7 +191,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.welcomeTitle}>Welcome to Hisaabit</Text>
             <Text style={styles.welcomeSubtitle}>
-              Log your first expense to start seeing charts, budgets, and your weekly story.
+              Start tracking your daily kharcha in seconds.
             </Text>
             <Pressable
               onPress={() => {
@@ -253,10 +253,10 @@ export default function HomeScreen() {
             const isSunday = dayOfWeek === 0;
             const daysUntilSunday = isSunday ? 0 : 7 - dayOfWeek;
             const subtitle = isSunday
-              ? 'Tap to see your spending story'
+              ? 'Tap to see your weekly summary'
               : daysUntilSunday === 1
-                ? 'Drops tomorrow — sneak a peek'
-                : `${daysUntilSunday} days to go — sneak a peek`;
+                ? 'Your weekly summary will be ready tomorrow.'
+                : `Your weekly summary will be ready in ${daysUntilSunday} days.`;
             return (
             <Pressable
               onPress={() => {

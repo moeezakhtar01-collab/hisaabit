@@ -22,7 +22,6 @@ const FEATURES = [
   { icon: 'mic-outline' as const, label: 'Voice expenses in Urdu, Roman Urdu or English' },
   { icon: 'pie-chart-outline' as const, label: 'Daily, weekly and monthly budget tracking' },
   { icon: 'bar-chart-outline' as const, label: 'Spending charts by category' },
-  { icon: 'document-text-outline' as const, label: 'Share a CSV of any date range' },
   { icon: 'shield-checkmark-outline' as const, label: 'Your data, only visible to you' },
 ];
 
@@ -62,7 +61,7 @@ export default function AboutScreen() {
             <Text style={styles.avatarLetter}>H</Text>
           </View>
           <Text style={styles.appName}>Hisaabit</Text>
-          <Text style={styles.tagline}>Personal Finance Tracker for Pakistan</Text>
+          <Text style={styles.tagline}>Paisay kahan gaye? Hisaabit janta hai</Text>
           <Text style={styles.version}>Version {APP_VERSION}</Text>
         </Animated.View>
 
@@ -102,7 +101,7 @@ export default function AboutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>4</Text>
             </View>
-            <Text style={styles.featureLabel}>Share a CSV export from the History screen — or a full PDF from the Sunday Weekly Hisaab</Text>
+            <Text style={styles.featureLabel}>Get your Weekly Hisaab every Sunday — share it as a PDF</Text>
           </View>
         </Animated.View>
 

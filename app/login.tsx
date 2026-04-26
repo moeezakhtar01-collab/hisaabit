@@ -70,7 +70,7 @@ export default function LoginScreen() {
             <Ionicons name="wallet" size={36} color="#fff" />
           </View>
           <Text style={styles.logoText}>Hisaabit</Text>
-          <Text style={styles.logoSubtext}>Track your household expenses</Text>
+          <Text style={styles.logoSubtext}>Paisay kahan gaye? Hisaabit janta hai</Text>
         </View>
 
         <View style={styles.form}>

@@ -80,7 +80,7 @@ export default function RegisterScreen() {
             <Ionicons name="wallet" size={36} color="#fff" />
           </View>
           <Text style={styles.logoText}>Hisaabit</Text>
-          <Text style={styles.logoSubtext}>Start tracking your expenses</Text>
+          <Text style={styles.logoSubtext}>Paisay kahan gaye? Hisaabit janta hai</Text>
         </View>
 
         <View style={styles.form}>

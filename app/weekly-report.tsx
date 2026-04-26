@@ -19,7 +19,7 @@ import { Expense, getExpenses, formatPKR, getExpensesForWeek } from '@/lib/stora
 import { computeWeeklyReport, WeeklyReportData } from '@/lib/weekly-report';
 import { generateWeeklyPdf } from '@/lib/report-export';
 
-const TOTAL_SCREENS = 8;
+const TOTAL_SCREENS = 6;
 const BG = '#0A0A0A';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_DIM = 'rgba(255,255,255,0.5)';
@@ -38,8 +38,6 @@ function getAccent(index: number, data: WeeklyReportData, colors: typeof lightCo
     data.weekOverWeekDirection === 'up' ? '#EF4444' : '#10B981',
     catColor,
     '#3B82F6',
-    colors.accent,
-    '#EC4899',
     colors.success,
     colors.primary,
   ][index];
@@ -220,55 +218,6 @@ function BehaviorSlide({ data }: { data: WeeklyReportData }) {
           <Text style={s.barValue}>{formatPKR(data.weekendTotal)}</Text>
         </View>
       </Animated.View>
-    </View>
-  );
-}
-
-function PersonalitySlide({ data }: { data: WeeklyReportData }) {
-  const colors = useColors();
-  const p = data.personality;
-  return (
-    <View style={s.center} pointerEvents="box-none">
-      <Animated.Text entering={FadeIn.delay(100).duration(400)} style={s.slideLabel}>
-        You are
-      </Animated.Text>
-      <Animated.Text entering={FadeInDown.delay(400).duration(500)} style={s.personalityEmoji}>
-        {p.emoji}
-      </Animated.Text>
-      <Animated.Text entering={FadeInDown.delay(700).duration(500)} style={[s.personalityLabel, { color: colors.accent }]}>
-        {p.label}
-      </Animated.Text>
-      <Animated.Text entering={FadeIn.delay(1000).duration(500)} style={s.personalityTagline}>
-        {p.tagline}
-      </Animated.Text>
-    </View>
-  );
-}
-
-function FunSlide({ data }: { data: WeeklyReportData }) {
-  const fun = data.funExpense;
-  if (!fun) return null;
-  const accent = '#EC4899';
-
-  return (
-    <View style={s.center} pointerEvents="box-none">
-      <Animated.Text entering={FadeIn.delay(100).duration(400)} style={[s.slideLabel, { color: accent }]}>
-        Your tiniest kharcha
-      </Animated.Text>
-      <Animated.View entering={FadeInDown.delay(400).duration(500)}>
-        <AnimatedAmount
-          value={fun.amount}
-          formatter={formatPKR}
-          style={s.bigNumber}
-          duration={600}
-        />
-      </Animated.View>
-      <Animated.Text entering={FadeIn.delay(800).duration(400)} style={s.funNote}>
-        on {fun.note}
-      </Animated.Text>
-      <Animated.Text entering={FadeIn.delay(1100).duration(400)} style={[s.funQuestion, { color: accent }]}>
-        worth it?
-      </Animated.Text>
     </View>
   );
 }
@@ -487,12 +436,8 @@ export default function WeeklyReportScreen() {
       case 3:
         return <BehaviorSlide data={data!} />;
       case 4:
-        return <PersonalitySlide data={data!} />;
-      case 5:
-        return <FunSlide data={data!} />;
-      case 6:
         return <AwarenessSlide data={data!} />;
-      case 7:
+      case 5:
         return (
           <ClosingSlide onShare={handleShare} onDetails={handleDetails} />
         );
@@ -729,39 +674,6 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
     color: TEXT_PRIMARY,
-  },
-
-  // ── Personality ───────────────────────────────────────────────
-  personalityEmoji: {
-    fontSize: 64,
-    marginBottom: 12,
-  },
-  personalityLabel: {
-    fontSize: 30,
-    fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  personalityTagline: {
-    fontSize: 16,
-    fontFamily: 'Inter_500Medium',
-    color: TEXT_DIM,
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-
-  // ── Fun ───────────────────────────────────────────────────────
-  funNote: {
-    fontSize: 18,
-    fontFamily: 'Inter_500Medium',
-    color: TEXT_SOFT,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  funQuestion: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-    marginTop: 20,
   },
 
   // ── Awareness ─────────────────────────────────────────────────

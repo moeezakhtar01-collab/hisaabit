@@ -1,6 +1,5 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Paths, File } from 'expo-file-system';
 import { Expense, getCategoryLabel, formatPKR } from './storage';
 
 function escapeHtml(text: string): string {
@@ -133,64 +132,3 @@ export async function generateWeeklyPdf(
   });
 }
 
-// ─── CSV Export (for history screen download) ──────────────────
-
-export async function generateCsvReport(
-  expenses: Expense[],
-  startDate: Date,
-  endDate: Date,
-): Promise<void> {
-  const filtered = expenses.filter((e) => {
-    const dateOnly = e.date.includes('T') ? e.date.split('T')[0] : e.date;
-    const [y, m, d] = dateOnly.split('-').map(Number);
-    const expDate = new Date(y, m - 1, d);
-    expDate.setHours(0, 0, 0, 0);
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    return expDate >= start && expDate <= end;
-  });
-
-  const sorted = filtered.sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  );
-
-  const escapeCsv = (val: string) => {
-    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-      return `"${val.replace(/"/g, '""')}"`;
-    }
-    return val;
-  };
-
-  const headers = ['Date', 'Category', 'Note', 'Amount (PKR)'];
-  const rows = sorted.map((e) =>
-    [
-      formatDateReadable(e.date),
-      getCategoryLabel(e.category),
-      e.note || '',
-      e.amount.toString(),
-    ]
-      .map(escapeCsv)
-      .join(','),
-  );
-
-  const total = sorted.reduce((s, e) => s + e.amount, 0);
-  rows.push(['', '', 'TOTAL', total.toString()].map(escapeCsv).join(','));
-
-  const csv = [headers.join(','), ...rows].join('\n');
-
-  const startLabel = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-  const endLabel = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-  const filename = `Hisaabit-${startLabel}-to-${endLabel}.csv`;
-
-  const file = new File(Paths.cache, filename);
-  file.create({ overwrite: true });
-  file.write(csv);
-
-  await Sharing.shareAsync(file.uri, {
-    mimeType: 'text/csv',
-    dialogTitle: 'Download Expense Report',
-    UTI: 'public.comma-separated-values-text',
-  });
-}
