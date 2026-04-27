@@ -48,36 +48,72 @@
  *   5. Rebuild APK and verify the pre-permission screen + system-settings
  *      handoff flow end-to-end on a physical Android device
  * ---------------------------------------------------------------------------
- * STORE_ENABLED — in-app purchases (remove ads, buy voice credits).
+ * Monetisation roadmap (3 phases):
  *
- * Turned off for v1 Play Store submission. The current /api/purchase endpoint
- * is a direct DB flag flip with NO payment happening, which violates Play's
- * Payments Policy (all digital goods must go through Google Play Billing).
- * Subscription screen, /api/purchase route, and DB columns (adsRemoved,
- * voiceCreditsPurchased) are kept intact for v1.1.
+ *   Phase 1 (NOW, v1.0): App is fully free. No ads, no IAP, no usage caps.
+ *     Goal: install volume + Play Store credibility + reviews. Target ~10k
+ *     installs before flipping any monetisation switch.
  *
- * To re-enable in v1.1:
- *   1. Install react-native-iap, configure managed products in Play Console
- *   2. Rewrite subscription.tsx purchase flow to use Play Billing Library
- *   3. Add server-side receipt verification via Google Play Developer API
- *   4. Handle pending/cancelled/refunded purchase states
- *   5. Flip STORE_ENABLED to true
+ *   Phase 2 (v1.1): Turn on AdMob banner + interstitial ads. Pure-ads
+ *     revenue while we build the Plus infrastructure. No ad-removal IAP —
+ *     the only way to skip ads will be Phase 3's Plus tier (this avoids
+ *     Play Billing complexity and the audit's "ads without remove-ads is
+ *     worse UX" trap; Plus *is* the remove-ads path).
+ *
+ *   Phase 3 (v1.2): Launch Hisaabit Plus. Web-purchased tier on
+ *     hisaabit.com via Safepay (JazzCash / EasyPaisa / cards), Rs. 999
+ *     lifetime. Plus users get: ads off, family sharing, SMS auto-parse,
+ *     multi-device sync, monthly PDF reports, custom categories, cloud
+ *     backup. Buyer persona = 38-year-old salaried married father; growth
+ *     engine = 25–32-year-old urban couples discovering and recommending.
+ *
+ * ---------------------------------------------------------------------------
+ * STORE_ENABLED — legacy in-app-purchase UI (remove ads, buy voice credits).
+ *
+ * This flag governs the original IAP plan we abandoned: Play Billing for ad
+ * removal + voice credit packs. That plan never shipped — `/api/purchase`
+ * was deleted in the v1.0 hygiene pass, voice has no usage cap, and ads are
+ * not bundled.
+ *
+ * Stays `false`. The (unreachable) subscription.tsx screen is kept only so
+ * deep-links to `/subscription` hit its `<Redirect>` instead of a 404. Both
+ * the flag and the screen will be removed in Phase 3 alongside the legacy
+ * users columns (subscriptionPlan, voiceCreditsPurchased, voiceUsageCount).
+ * `adsRemoved` survives Phase 3 — it's the column the Plus webhook will set
+ * to gate ads off for paying users.
+ *
+ * Phase 3 architecture (when we build Plus):
+ *   - DB: extend `users` with plus_active / plus_tier / plus_expires_at,
+ *     add `purchases` audit table
+ *   - Server: 4 endpoints — POST /api/checkout/init, POST /api/checkout/
+ *     webhook (Safepay-signed, idempotent), GET /api/me/entitlement,
+ *     POST /api/checkout/verify (fallback for missed webhooks)
+ *   - Web: hisaabit.com/upgrade marketing + checkout page; sign-in BEFORE
+ *     checkout so the order is tied to a known user_id
+ *   - App: text-only "Available at hisaabit.com" card in Settings (Play
+ *     anti-steering compliance — no clickable link), Plus badge on profile,
+ *     entitlement-gated feature unlocks
+ *   - Pakistan onboarding prereqs: NTN (FBR online), sole-prop current
+ *     account (HBL/Meezan/UBL), Safepay merchant signup (~2-3 weeks total).
+ *     Sandbox integration can be built in parallel with the bureaucracy.
  * ---------------------------------------------------------------------------
  * ADS_ENABLED — AdMob banner + interstitial ads.
  *
- * Turned off for v1 because (a) current app.json uses Google's PUBLIC TEST
- * AdMob App IDs, which violates AdMob policy in production, and (b) real
- * AdMob IDs are only issued after the app is live on Play (chicken-and-egg).
- * Ads without a "Remove Ads" IAP is also a worse UX than no ads, so ADS
- * and STORE flip together.
+ * Off for v1.0 (Phase 1). Will flip to true in Phase 2 once we have ~10k
+ * installs and a live Play listing (real AdMob IDs are only issued after
+ * the app is published, chicken-and-egg).
  *
- * To re-enable in v1.1:
+ * To turn on for Phase 2:
  *   1. Create AdMob account, link to the published Play app listing
  *   2. Create banner + interstitial ad units, copy real IDs into app.json +
- *      lib/ad-manager.ts (replace ca-app-pub-3940256099942544/*)
+ *      lib/ad-manager.ts (replace ca-app-pub-3940256099942544/* test IDs)
  *   3. Add react-native-google-mobile-ads plugin back to app.json
  *   4. Flip ADS_ENABLED to true
- *   5. Verify on a real Android build (test IDs won't show anything)
+ *   5. Verify on a real Android build (test IDs render placeholders only)
+ *
+ * Phase 3 behaviour: ads keep showing for free users. Plus users get
+ * `user.adsRemoved = true` set by the Safepay webhook → the existing
+ * `!user?.adsRemoved` check in ad-manager.ts hides ads for them.
  * ---------------------------------------------------------------------------
  */
 export const SMS_ENABLED: boolean = false;

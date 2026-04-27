@@ -246,27 +246,6 @@ export async function resetMonthlyVoiceUsage(userId: string, currentMonth: strin
   }).where(eq(users.id, userId));
 }
 
-export async function purchaseAdRemoval(userId: string): Promise<void> {
-  await db.update(users).set({ adsRemoved: true }).where(eq(users.id, userId));
-}
-
-export async function purchaseVoiceCredits(userId: string, amount: number): Promise<number> {
-  const [updated] = await db
-    .update(users)
-    .set({ voiceCreditsPurchased: sql`voice_credits_purchased + ${amount}` })
-    .where(eq(users.id, userId))
-    .returning({ voiceCreditsPurchased: users.voiceCreditsPurchased });
-  return updated.voiceCreditsPurchased;
-}
-
-export async function deductVoiceCredit(userId: string): Promise<number> {
-  const [updated] = await db
-    .update(users)
-    .set({ voiceCreditsPurchased: sql`GREATEST(voice_credits_purchased - 1, 0)` })
-    .where(eq(users.id, userId))
-    .returning({ voiceCreditsPurchased: users.voiceCreditsPurchased });
-  return updated.voiceCreditsPurchased;
-}
 
 // ─── SMS Processing ──────────────────────────────────────────────
 

@@ -411,7 +411,7 @@ export default function WeeklyReportScreen() {
           <Text style={{ fontSize: 48, marginBottom: 16 }}>{'\uD83D\uDCCA'}</Text>
           <Text style={s.emptyTitle}>Not enough data yet</Text>
           <Text style={s.emptySubtext}>
-            Log at least 3 expenses this week{'\n'}to unlock your Weekly Hisaab
+            Log 3 expenses this week{'\n'}to see your Weekly Hisaab
           </Text>
           <Pressable onPress={close} style={s.emptyBtn}>
             <Text style={s.emptyBtnText}>Got it</Text>

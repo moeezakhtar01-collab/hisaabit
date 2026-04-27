@@ -34,9 +34,6 @@ import {
   markUserDemoSeen,
   deleteUserAccount,
   getSubscriptionInfo,
-  updateSubscriptionPlan,
-  purchaseAdRemoval,
-  purchaseVoiceCredits,
   bulkCheckProcessedSms,
   markSmsBulkProcessed,
   getPendingExpensesByUser,
@@ -970,24 +967,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("Get subscription error:", err);
       return res.status(500).json({ error: "Failed to get subscription info" });
-    }
-  });
-
-  app.post("/api/purchase", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { action } = req.body;
-      if (action === "remove_ads") {
-        await purchaseAdRemoval(req.session.userId!);
-        return res.json({ success: true, message: "Ads removed successfully" });
-      } else if (action === "buy_voice_credits") {
-        const newBalance = await purchaseVoiceCredits(req.session.userId!, 50);
-        return res.json({ success: true, message: "50 voice credits added", voiceCreditsPurchased: newBalance });
-      } else {
-        return res.status(400).json({ error: "Invalid action. Use 'remove_ads' or 'buy_voice_credits'" });
-      }
-    } catch (err) {
-      console.error("Purchase error:", err);
-      return res.status(500).json({ error: "Purchase failed. Please try again." });
     }
   });
 
