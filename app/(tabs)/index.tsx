@@ -147,7 +147,7 @@ export default function HomeScreen() {
             <View style={[styles.summaryIconBg, { backgroundColor: colors.primary + '15' }]}>
               <Ionicons name="calendar" size={18} color={colors.primary} />
             </View>
-            <Text style={styles.summaryLabel}>Spent This Month</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>Spent This Month</Text>
             <AnimatedAmount value={totalThisMonth} formatter={formatPKR} style={styles.summaryAmount} />
           </View>
           {monthlyBudget && monthlyBudget.totalLimit > 0 ? (
@@ -161,8 +161,8 @@ export default function HomeScreen() {
                   color={monthlyBudget.totalLimit - totalThisMonth >= 0 ? colors.success : colors.danger}
                 />
               </View>
-              <Text style={styles.summaryLabel}>
-                {monthlyBudget.totalLimit - totalThisMonth >= 0 ? 'Remaining' : 'Over Budget'}
+              <Text style={styles.summaryLabel} numberOfLines={1}>
+                {monthlyBudget.totalLimit - totalThisMonth >= 0 ? 'Left This Month' : 'Over Budget'}
               </Text>
               <AnimatedAmount
                 value={Math.abs(monthlyBudget.totalLimit - totalThisMonth)}
@@ -178,7 +178,7 @@ export default function HomeScreen() {
               <View style={[styles.summaryIconBg, { backgroundColor: colors.accent + '20' }]}>
                 <Ionicons name="today" size={18} color={colors.accent} />
               </View>
-              <Text style={styles.summaryLabel}>Today</Text>
+              <Text style={styles.summaryLabel} numberOfLines={1}>Today</Text>
               <AnimatedAmount value={todayTotal} formatter={formatPKR} style={styles.summaryAmount} />
             </View>
           )}
@@ -272,14 +272,14 @@ export default function HomeScreen() {
             >
               <View style={styles.reportBannerLeft}>
                 <Text style={styles.reportBannerEmoji}>{isSunday ? '\u2728' : '\uD83D\uDCC5'}</Text>
-                <View>
-                  <Text style={styles.reportBannerTitle}>
+                <View style={styles.reportBannerTextWrap}>
+                  <Text style={styles.reportBannerTitle} numberOfLines={1}>
                     {isSunday ? 'Your Weekly Hisaab is ready' : 'Weekly Hisaab'}
                   </Text>
-                  <Text style={styles.reportBannerSub}>{subtitle}</Text>
+                  <Text style={styles.reportBannerSub} numberOfLines={1}>{subtitle}</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" style={styles.reportBannerChevron} />
             </Pressable>
             );
           })()}
@@ -442,24 +442,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
   },
   chartSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 10,
+    gap: 10,
   },
   sectionTitle: {
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
     color: colors.text,
-    flexShrink: 1,
   },
   chartTabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 2,
-    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   chartTab: {
     paddingVertical: 6,
@@ -524,12 +521,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.85,
   },
   reportBannerLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginRight: 8,
+  },
+  reportBannerTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   reportBannerEmoji: {
     fontSize: 24,
+    lineHeight: 28,
+  },
+  reportBannerChevron: {
+    flexShrink: 0,
   },
   reportBannerTitle: {
     fontSize: 14,

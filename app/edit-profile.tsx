@@ -107,8 +107,7 @@ export default function EditProfileScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? webTopInset : insets.top) + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} testID="close-button">
@@ -365,7 +364,7 @@ const createStyles = (colors: typeof lightColors) => StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 24,
+    gap: 14,
   },
   card: {
     backgroundColor: colors.card,

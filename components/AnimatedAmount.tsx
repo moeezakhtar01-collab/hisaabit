@@ -41,5 +41,5 @@ export default function AnimatedAmount({
     };
   }, [value, duration]);
 
-  return <Text style={style}>{formatter(display)}</Text>;
+  return <Text style={style} numberOfLines={1} adjustsFontSizeToFit>{formatter(display)}</Text>;
 }

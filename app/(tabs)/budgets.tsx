@@ -338,25 +338,26 @@ export default function BudgetsScreen() {
               <>
                 <View style={styles.monthlyAmounts}>
                   <View style={styles.monthlyAmountItem}>
-                    <Text style={styles.monthlyAmountLabel}>Budget</Text>
-                    <Text style={styles.monthlyAmountValue}>{formatPKR(monthlyLimit)}</Text>
+                    <Text style={styles.monthlyAmountLabel} numberOfLines={1}>Budget</Text>
+                    <Text style={styles.monthlyAmountValue} numberOfLines={1} adjustsFontSizeToFit>
+                      {formatPKR(monthlyLimit)}
+                    </Text>
                   </View>
                   <View style={styles.monthlyDivider} />
                   <View style={styles.monthlyAmountItem}>
-                    <Text style={styles.monthlyAmountLabel}>Spent</Text>
-                    <Text style={[styles.monthlyAmountValue, totalSpent > monthlyLimit && { color: colors.danger }]}>
+                    <Text style={styles.monthlyAmountLabel} numberOfLines={1}>Spent</Text>
+                    <Text style={[styles.monthlyAmountValue, totalSpent > monthlyLimit && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>
                       {formatPKR(totalSpent)}
                     </Text>
                   </View>
                   <View style={styles.monthlyDivider} />
                   <View style={styles.monthlyAmountItem}>
-                    <Text style={styles.monthlyAmountLabel}>Remaining</Text>
-                    <Text style={[styles.monthlyAmountValue, { color: remaining >= 0 ? colors.success : colors.danger }]}>
+                    <Text style={styles.monthlyAmountLabel} numberOfLines={1}>
+                      {remaining >= 0 ? 'Left' : 'Over'}
+                    </Text>
+                    <Text style={[styles.monthlyAmountValue, { color: remaining >= 0 ? colors.success : colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>
                       {formatPKR(Math.abs(remaining))}
                     </Text>
-                    {remaining < 0 ? (
-                      <Text style={styles.overBudgetLabel}>over</Text>
-                    ) : null}
                   </View>
                 </View>
                 <View style={styles.monthlyBarBg}>
@@ -403,15 +404,15 @@ export default function BudgetsScreen() {
                   </View>
                   <View style={styles.periodStatsRow}>
                     <View style={styles.periodStatItem}>
-                      <Text style={styles.periodStatLabel}>Spent</Text>
+                      <Text style={styles.periodStatLabel} numberOfLines={1}>Spent</Text>
                       <Text style={[styles.periodStatValue, todaySpent > budgetSettings.dailyLimit && { color: colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(todaySpent)}
                       </Text>
                     </View>
                     <View style={styles.periodStatDivider} />
                     <View style={styles.periodStatItem}>
-                      <Text style={[styles.periodStatLabel, budgetSettings.dailyLimit - todaySpent < 0 && { color: colors.danger }]}>
-                        {budgetSettings.dailyLimit - todaySpent >= 0 ? 'Remaining' : 'Over'}
+                      <Text style={[styles.periodStatLabel, budgetSettings.dailyLimit - todaySpent < 0 && { color: colors.danger }]} numberOfLines={1}>
+                        {budgetSettings.dailyLimit - todaySpent >= 0 ? 'Left' : 'Over'}
                       </Text>
                       <Text style={[styles.periodStatValue, { color: budgetSettings.dailyLimit - todaySpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(Math.abs(budgetSettings.dailyLimit - todaySpent))}
@@ -445,15 +446,15 @@ export default function BudgetsScreen() {
                   </View>
                   <View style={styles.periodStatsRow}>
                     <View style={styles.periodStatItem}>
-                      <Text style={styles.periodStatLabel}>Spent</Text>
+                      <Text style={styles.periodStatLabel} numberOfLines={1}>Spent</Text>
                       <Text style={[styles.periodStatValue, weekSpent > budgetSettings.weeklyLimit && { color: colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(weekSpent)}
                       </Text>
                     </View>
                     <View style={styles.periodStatDivider} />
                     <View style={styles.periodStatItem}>
-                      <Text style={[styles.periodStatLabel, budgetSettings.weeklyLimit - weekSpent < 0 && { color: colors.danger }]}>
-                        {budgetSettings.weeklyLimit - weekSpent >= 0 ? 'Remaining' : 'Over'}
+                      <Text style={[styles.periodStatLabel, budgetSettings.weeklyLimit - weekSpent < 0 && { color: colors.danger }]} numberOfLines={1}>
+                        {budgetSettings.weeklyLimit - weekSpent >= 0 ? 'Left' : 'Over'}
                       </Text>
                       <Text style={[styles.periodStatValue, { color: budgetSettings.weeklyLimit - weekSpent >= 0 ? colors.success : colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>
                         {formatPKR(Math.abs(budgetSettings.weeklyLimit - weekSpent))}
@@ -904,12 +905,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
     color: colors.text,
-  },
-  overBudgetLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.danger,
-    textTransform: 'uppercase' as const,
   },
   monthlyBarBg: {
     height: 8,

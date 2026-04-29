@@ -445,9 +445,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.textSecondary + '50',
   },
   dayDash: {
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 14,
     fontFamily: 'Inter_500Medium',
     color: colors.textSecondary + '50',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   todayIndicator: {
     width: 4,

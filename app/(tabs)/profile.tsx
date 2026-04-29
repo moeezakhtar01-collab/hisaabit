@@ -119,16 +119,16 @@ export default function ProfileScreen() {
             <View style={[styles.statIconBg, { backgroundColor: colors.primary + '15' }]}>
               <Ionicons name="receipt-outline" size={18} color={colors.primary} />
             </View>
-            <Text style={styles.statValue}>{stats.count}</Text>
-            <Text style={styles.statLabel}>{stats.count === 1 ? 'Expense' : 'Expenses'}</Text>
+            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stats.count}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>{stats.count === 1 ? 'Expense' : 'Expenses'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <View style={[styles.statIconBg, { backgroundColor: colors.warning + '20' }]}>
               <Ionicons name="flame" size={18} color={colors.warning} />
             </View>
-            <Text style={styles.statValue}>{stats.streak}</Text>
-            <Text style={styles.statLabel}>{stats.streak === 1 ? 'Day streak' : 'Day streak'}</Text>
+            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stats.streak}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Day streak</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
             >
               {formatPKR(stats.lifetime)}
             </Text>
-            <Text style={styles.statLabel}>Tracked</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Tracked</Text>
           </View>
         </Animated.View>
 

@@ -32,11 +32,12 @@ export default function BudgetBar({ category, spent, limit, index, onDelete }: B
           <View style={[styles.iconDot, { backgroundColor: color + '20' }]}>
             <Ionicons name={getCategoryIcon(category) as any} size={16} color={color} />
           </View>
-          <Text style={styles.categoryLabel}>{getCategoryLabel(category)}</Text>
+          <Text style={styles.categoryLabel} numberOfLines={1}>{getCategoryLabel(category)}</Text>
         </View>
         <View style={styles.rightRow}>
-          <Text style={[styles.amountText, isOverBudget && styles.overBudgetText]}>
-            {formatPKR(spent)} / {formatPKR(limit)}
+          <Text style={styles.amountText} numberOfLines={1}>
+            <Text style={[styles.spentText, isOverBudget && styles.spentTextOver]}>{formatPKR(spent)}</Text>
+            <Text style={styles.limitText}> / {formatPKR(limit)}</Text>
           </Text>
           {onDelete ? (
             <Pressable
@@ -92,11 +93,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+    gap: 10,
   },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   iconDot: {
     width: 30,
@@ -104,16 +108,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   categoryLabel: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: colors.text,
+    flexShrink: 1,
   },
   rightRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    flexShrink: 0,
   },
   deleteIconBtn: {
     width: 28,
@@ -126,11 +133,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   amountText: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: colors.textSecondary,
   },
-  overBudgetText: {
+  spentText: {
+    color: colors.text,
+    fontFamily: 'Inter_700Bold',
+  },
+  spentTextOver: {
     color: colors.danger,
-    fontFamily: 'Inter_600SemiBold',
+  },
+  limitText: {
+    color: colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
   },
   barBackground: {
     height: 8,
