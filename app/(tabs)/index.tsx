@@ -255,32 +255,45 @@ export default function HomeScreen() {
             const subtitle = isSunday
               ? 'Tap to see your weekly summary'
               : daysUntilSunday === 1
-                ? 'Your weekly summary will be ready tomorrow.'
-                : `Your weekly summary will be ready in ${daysUntilSunday} days.`;
-            return (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                (router as any).push('/weekly-report');
-              }}
-              style={({ pressed }) => [
-                styles.reportBanner,
-                !isSunday && styles.reportBannerMuted,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-              ]}
-              testID="weekly-hisaab-banner"
-            >
-              <View style={styles.reportBannerLeft}>
-                <Text style={styles.reportBannerEmoji}>{isSunday ? '\u2728' : '\uD83D\uDCC5'}</Text>
-                <View style={styles.reportBannerTextWrap}>
-                  <Text style={styles.reportBannerTitle} numberOfLines={1}>
-                    {isSunday ? 'Your Weekly Hisaab is ready' : 'Weekly Hisaab'}
-                  </Text>
-                  <Text style={styles.reportBannerSub} numberOfLines={1}>{subtitle}</Text>
+                ? 'Available tomorrow'
+                : `Available in ${daysUntilSunday} days`;
+            const content = (
+              <>
+                <View style={styles.reportBannerLeft}>
+                  <Text style={styles.reportBannerEmoji}>{isSunday ? '\u2728' : '\uD83D\uDCC5'}</Text>
+                  <View style={styles.reportBannerTextWrap}>
+                    <Text style={styles.reportBannerTitle} numberOfLines={1}>Weekly Hisaab</Text>
+                    <Text style={styles.reportBannerSub} numberOfLines={1}>{subtitle}</Text>
+                  </View>
                 </View>
+                {isSunday ? (
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" style={styles.reportBannerChevron} />
+                ) : (
+                  <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.45)" style={styles.reportBannerChevron} />
+                )}
+              </>
+            );
+            return isSunday ? (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  (router as any).push('/weekly-report');
+                }}
+                style={({ pressed }) => [
+                  styles.reportBanner,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                ]}
+                testID="weekly-hisaab-banner"
+              >
+                {content}
+              </Pressable>
+            ) : (
+              <View
+                style={[styles.reportBanner, styles.reportBannerMuted]}
+                testID="weekly-hisaab-banner"
+              >
+                {content}
               </View>
-              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" style={styles.reportBannerChevron} />
-            </Pressable>
             );
           })()}
         </Animated.View>
