@@ -40,8 +40,12 @@ export default function RegisterScreen() {
       setError('Please fill in all fields');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    if (!/\d/.test(password)) {
+      setError('Password must include at least one number');
       return;
     }
     setError('');
@@ -159,7 +163,7 @@ export default function RegisterScreen() {
                     style={styles.input}
                     value={password}
                     onChangeText={setPassword}
-                    placeholder="Min. 6 characters"
+                    placeholder="Min. 8 characters, 1 number"
                     placeholderTextColor={colors.textSecondary + '80'}
                     secureTextEntry={!showPassword}
                     returnKeyType="go"

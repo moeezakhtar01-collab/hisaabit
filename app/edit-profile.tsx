@@ -75,8 +75,13 @@ export default function EditProfileScreen() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+
+    if (!/\d/.test(newPassword)) {
+      setPasswordError('New password must include at least one number');
       return;
     }
 
@@ -190,7 +195,7 @@ export default function EditProfileScreen() {
 
         <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.card}>
           <Text style={styles.sectionLabel}>Change password</Text>
-          <Text style={styles.sectionHint}>Use at least 6 characters. Mix in numbers for extra strength.</Text>
+          <Text style={styles.sectionHint}>Use at least 8 characters and include a number.</Text>
           <View style={styles.passwordInputWrap}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} style={styles.passwordIcon} />
             <TextInput

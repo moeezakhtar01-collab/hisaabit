@@ -130,12 +130,14 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <Pressable
-            onPress={() => router.push('/forgot-password')}
-            style={styles.forgotLink}
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </Pressable>
+          {/*
+            Forgot-password is intentionally hidden until Resend domain
+            verification is complete. The backend endpoint and the
+            forgot-password screen are still wired up — once
+            sendResetEmail is implemented and DNS records (SPF/DKIM)
+            are live for hisaabit.com, restore the Pressable below.
+            See Day-1 audit, fix #1.
+          */}
 
           <Pressable
             onPress={handleLogin}

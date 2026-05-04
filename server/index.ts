@@ -37,6 +37,18 @@ function setupCors(app: express.Application) {
       });
     }
 
+    // Production origin(s) — set in Railway env. Comma-separate to
+    // allow more than one (e.g. apex domain + Railway subdomain).
+    // Without this the web build of the app gets no Access-Control-
+    // Allow-Credentials header from cross-origin requests, so cookie
+    // auth silently breaks.
+    if (process.env.APP_URL) {
+      process.env.APP_URL.split(",").forEach((u) => {
+        const trimmed = u.trim();
+        if (trimmed) origins.add(trimmed);
+      });
+    }
+
     const origin = req.header("origin");
 
     // Allow localhost origins for Expo web development (any port)

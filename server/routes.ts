@@ -34,6 +34,8 @@ import {
   markUserDemoSeen,
   deleteUserAccount,
   getSubscriptionInfo,
+  incrementVoiceUsage,
+  resetMonthlyVoiceUsage,
   bulkCheckProcessedSms,
   markSmsBulkProcessed,
   getPendingExpensesByUser,
@@ -56,7 +58,11 @@ declare module "express-session" {
   }
 }
 
-const upload = multer({ dest: "/tmp/uploads/", limits: { fileSize: 25 * 1024 * 1024 } });
+// Whisper accepts up to 25 MB but a real voice expense is a few seconds
+// of speech (~200-500 KB). Cap at 5 MB so an unauthenticated request
+// can't exhaust /tmp by uploading garbage. Anything larger is almost
+// certainly abuse.
+const upload = multer({ dest: "/tmp/uploads/", limits: { fileSize: 5 * 1024 * 1024 } });
 
 function requireAuth(req: Request, res: Response, next: Function) {
   if (!req.session.userId) {
@@ -67,6 +73,58 @@ function requireAuth(req: Request, res: Response, next: Function) {
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// bcrypt cost factor used everywhere we hash a password. 12 is the OWASP
+// 2024 baseline — adds ~150ms per login, kills cheap GPU brute-force.
+const BCRYPT_COST = 12;
+
+// Single source of truth for password rules. 8+ chars and at least one
+// digit is the minimum we enforce on register, change-password, and
+// reset-password. Returns a user-friendly error string, or null if OK.
+function validatePassword(password: string): string | null {
+  if (typeof password !== "string") {
+    return "Password is required";
+  }
+  if (password.length < 8) {
+    return "Password must be at least 8 characters";
+  }
+  if (!/\d/.test(password)) {
+    return "Password must include at least one number";
+  }
+  return null;
+}
+
+// Voice quota policy. Today the app is "free for everyone" (Phase 1 of
+// the monetization roadmap), so we don't surface a hard 5/month cap.
+// We DO enforce a generous anti-abuse ceiling so a single bad actor
+// can't run thousands of Whisper calls and burn our OpenAI bill. When
+// Phase 3 (Hisaabit Plus) launches, lower this to 5 for free users
+// and bypass it for paid plans.
+const VOICE_MONTHLY_ANTI_ABUSE_CAP = 100;
+
+async function checkAndConsumeVoiceQuota(
+  userId: string,
+): Promise<{ ok: true } | { ok: false; usage: number; cap: number }> {
+  const info = await getSubscriptionInfo(userId);
+  if (!info) {
+    return { ok: false, usage: 0, cap: 0 };
+  }
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  let usage = info.voiceUsageCount ?? 0;
+
+  // Roll over at month boundary.
+  if (info.voiceUsageResetMonth !== currentMonth) {
+    await resetMonthlyVoiceUsage(userId, currentMonth);
+    usage = 0;
+  }
+
+  if (usage >= VOICE_MONTHLY_ANTI_ABUSE_CAP) {
+    return { ok: false, usage, cap: VOICE_MONTHLY_ANTI_ABUSE_CAP };
+  }
+
+  return { ok: true };
 }
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -187,20 +245,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn("WARNING: SESSION_SECRET not set — using insecure fallback. Set it in .env for production.");
   }
 
+  // Generate a one-shot dev secret if SESSION_SECRET is missing in
+  // development. This avoids the previous hardcoded fallback string
+  // (which leaked a known secret into source) without crashing dev.
+  // Prod throws above if SESSION_SECRET is missing.
+  const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString("hex");
+
   app.use(
     session({
       store: new PgSession({
         conString: process.env.DATABASE_URL,
         createTableIfMissing: true,
+        // Prune expired sessions every 15 minutes so the session
+        // table doesn't grow forever. connect-pg-simple takes the
+        // interval in seconds.
+        pruneSessionInterval: 60 * 15,
       }),
-      secret: process.env.SESSION_SECRET || "hisaabit-dev-fallback-key",
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
       cookie: {
+        // `secure: true` is required for `sameSite: "none"`. In dev we
+        // stay on `lax` + `secure: false` so localhost still works.
         secure: isProduction,
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: "lax",
+        // Mobile and web builds may hit the API from a different
+        // origin (the Expo app shell vs the Railway backend). Lax
+        // can drop the cookie on cross-site POSTs in some Android
+        // WebViews — `none` + `secure` is the cross-origin-safe combo.
+        sameSite: isProduction ? "none" : "lax",
       },
     })
   );
@@ -213,8 +287,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name, email and password are required" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
       }
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -227,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "An account with this email already exists" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
       const confirmationToken = randomBytes(32).toString("hex");
 
       await createUser({
@@ -301,8 +376,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      req.session.userId = user.id;
-      return res.json({ user: { id: user.id, email: user.email, name: user.name, subscriptionPlan: user.subscriptionPlan || 'free', voiceUsageCount: user.voiceUsageCount || 0, adsRemoved: user.adsRemoved || false, voiceCreditsPurchased: user.voiceCreditsPurchased || 0, hasSeenDemo: user.hasSeenDemo || false } });
+      // Regenerate the session ID on login so a pre-login session ID
+      // (e.g. one captured from an unauthenticated visit) cannot be
+      // promoted to an authenticated one. Standard fixation defense.
+      const userPayload = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        subscriptionPlan: user.subscriptionPlan || "free",
+        voiceUsageCount: user.voiceUsageCount || 0,
+        adsRemoved: user.adsRemoved || false,
+        voiceCreditsPurchased: user.voiceCreditsPurchased || 0,
+        hasSeenDemo: user.hasSeenDemo || false,
+      };
+
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error("Session regenerate error:", regenErr);
+          return res.status(500).json({ error: "Could not start session" });
+        }
+        req.session.userId = user.id;
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.status(500).json({ error: "Could not start session" });
+          }
+          return res.json({ user: userPayload });
+        });
+      });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -368,11 +469,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Token and new password are required" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
       const success = await resetPassword(token, hashedPassword);
 
       if (!success) {
@@ -444,8 +546,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ error: "Current password and new password are required" });
       }
-      if (newPassword.length < 6) {
-        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
       }
       const user = await getUserById(req.session.userId!);
       if (!user) {
@@ -455,7 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!valid) {
         return res.status(400).json({ error: "Current password is incorrect" });
       }
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_COST);
       await updateUserPassword(req.session.userId!, hashedPassword);
       return res.json({ message: "Password updated successfully" });
     } catch (err) {
@@ -970,30 +1073,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/voice-expense", voiceLimiter, upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/voice-expense", voiceLimiter, requireAuth, upload.single("audio"), async (req: Request, res: Response) => {
+    // Track every temp path we create so the finally block can clean
+    // them up even if Whisper / GPT throw partway through. The privacy
+    // policy promises immediate deletion of voice clips — this is what
+    // actually honors that promise.
+    let originalPath: string | null = null;
+    let renamedPath: string | null = null;
+
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
       }
-
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      originalPath = req.file.path;
 
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "OpenAI API key not configured" });
       }
 
+      // Voice quota guard. Today this is a generous anti-abuse ceiling
+      // so a single bad actor can't run thousands of Whisper calls;
+      // when paid plans launch this becomes the free-tier 5/month cap.
+      const quota = await checkAndConsumeVoiceQuota(req.session.userId!);
+      if (!quota.ok) {
+        return res.status(429).json({
+          error: "You've hit this month's voice limit. Please try again next month.",
+        });
+      }
+
       const openai = new OpenAI({ apiKey });
 
-      const audioPath = req.file.path;
       const originalName = req.file.originalname || "recording.m4a";
       const ext = path.extname(originalName).toLowerCase() || ".m4a";
       const supportedExts = [".flac", ".m4a", ".mp3", ".mp4", ".mpeg", ".mpga", ".oga", ".ogg", ".wav", ".webm"];
       const finalExt = supportedExts.includes(ext) ? ext : ".m4a";
-      const renamedPath = audioPath + finalExt;
-      fs.renameSync(audioPath, renamedPath);
+      renamedPath = originalPath + finalExt;
+      fs.renameSync(originalPath, renamedPath);
+      // After a successful rename, the original path no longer exists —
+      // the file is at renamedPath. Clear originalPath so finally
+      // doesn't try to unlink a ghost.
+      originalPath = null;
 
       const audioFile = fs.createReadStream(renamedPath);
 
@@ -1003,8 +1123,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: "ur",
         prompt: "This is a Pakistani household expense spoken in Urdu or Roman Urdu or English. It may contain amounts in Pakistani Rupees (PKR). Common words: rupay, hazaar, sau, kiryana, sabzi, bijli, gas, school, petrol, chai, nashta, kapray, dawai, rent, kiraya.",
       });
-
-      try { fs.unlinkSync(renamedPath); } catch {};
 
       const transcript = transcription.text;
 
@@ -1094,23 +1212,53 @@ If you cannot determine the amount for an expense, use 0. If you cannot determin
 
       const finalExpenses = validatedExpenses;
 
+      // Increment usage AFTER a successful transcription so users
+      // aren't charged a quota hit for failed Whisper requests. Best
+      // effort — a failed counter update should not fail the request.
+      await incrementVoiceUsage(req.session.userId!).catch((e) => {
+        console.error("Failed to increment voice usage:", e);
+      });
+
       return res.json({
         transcript,
         expenses: finalExpenses,
       });
     } catch (err: any) {
       console.error("Voice expense error:", err);
-      // Surface the underlying error class + message to the client so we can
-      // diagnose issues on device without needing Railway logs. We avoid
-      // leaking stack traces or full OpenAI response bodies — just enough
-      // signal: "OpenAI: 401 Invalid API key", "ENOENT rename …", etc.
-      const name = err?.name || "Error";
-      const message = typeof err?.message === "string" ? err.message : String(err);
-      const openaiStatus = err?.status ? ` [openai-status:${err.status}]` : "";
-      const code = err?.code ? ` [${err.code}]` : "";
+      // In dev, surface the underlying error class + message to the
+      // client so we can diagnose on device. In prod, return a generic
+      // string so internal details (file paths, OpenAI auth errors,
+      // stack frame fragments) don't leak to end users.
+      if (process.env.NODE_ENV !== "production") {
+        const name = err?.name || "Error";
+        const message = typeof err?.message === "string" ? err.message : String(err);
+        const openaiStatus = err?.status ? ` [openai-status:${err.status}]` : "";
+        const code = err?.code ? ` [${err.code}]` : "";
+        return res.status(500).json({
+          error: `Failed to process voice note: ${name}${code}${openaiStatus}: ${message.slice(0, 200)}`,
+        });
+      }
       return res.status(500).json({
-        error: `Failed to process voice note: ${name}${code}${openaiStatus}: ${message.slice(0, 200)}`,
+        error: "Failed to process voice note. Please try again.",
       });
+    } finally {
+      // Honor the privacy policy: every temp audio file we wrote gets
+      // unlinked, success or failure. Use existsSync so unlink doesn't
+      // throw on a ghost path.
+      if (renamedPath) {
+        try {
+          if (fs.existsSync(renamedPath)) fs.unlinkSync(renamedPath);
+        } catch (e) {
+          console.error("Failed to delete temp audio:", e);
+        }
+      }
+      if (originalPath) {
+        try {
+          if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+        } catch (e) {
+          console.error("Failed to delete temp audio:", e);
+        }
+      }
     }
   });
 
