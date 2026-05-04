@@ -46,26 +46,33 @@ export default function HomeScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [chartPeriod, setChartPeriod] = useState<PeriodTab>('monthly');
   const [smsPendingCount, setSmsPendingCount] = useState(0);
   const currentMonth = getMonthKey();
 
   const loadExpenses = useCallback(async () => {
-    const [all, mb, pendingCt] = await Promise.all([
-      getExpenses(),
-      getMonthlyBudget(currentMonth),
-      SMS_ENABLED ? getPendingCount() : Promise.resolve(0),
-    ]);
-    setExpenses(all);
-    setMonthlyBudgetState(mb);
-    setSmsPendingCount(pendingCt);
+    try {
+      const [all, mb, pendingCt] = await Promise.all([
+        getExpenses(),
+        getMonthlyBudget(currentMonth),
+        SMS_ENABLED ? getPendingCount() : Promise.resolve(0),
+      ]);
+      setExpenses(all);
+      setMonthlyBudgetState(mb);
+      setSmsPendingCount(pendingCt);
+      setLoadError(null);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Couldn’t load your data.');
+    }
   }, [currentMonth]);
 
+  // Refresh on focus + on pull-to-refresh. The previous 30s background
+  // polling was burning battery + data on idle tabs. useFocusEffect
+  // already covers tab switches and screen returns.
   useFocusEffect(
     useCallback(() => {
       loadExpenses();
-      const interval = setInterval(loadExpenses, 30000);
-      return () => clearInterval(interval);
     }, [loadExpenses])
   );
 
@@ -141,6 +148,23 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+
+        {loadError ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="cloud-offline-outline" size={18} color={colors.danger} />
+            <Text style={styles.errorBannerText} numberOfLines={2}>{loadError}</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                loadExpenses();
+              }}
+              style={({ pressed }) => [styles.errorBannerBtn, pressed && { opacity: 0.7 }]}
+              testID="home-error-retry"
+            >
+              <Text style={styles.errorBannerBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -661,5 +685,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.danger + '12',
+    borderColor: colors.danger + '30',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.danger,
+  },
+  errorBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+  },
+  errorBannerBtnText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
 });

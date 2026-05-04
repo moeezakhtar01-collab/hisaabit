@@ -53,6 +53,7 @@ export default function BudgetsScreen() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -67,23 +68,28 @@ export default function BudgetsScreen() {
   const currentMonth = getMonthKey();
 
   const loadData = useCallback(async () => {
-    const [allExpenses, allBudgets, mb, bs] = await Promise.all([
-      getExpenses(),
-      getBudgets(),
-      getMonthlyBudget(currentMonth),
-      getBudgetSettingsApi(),
-    ]);
-    setExpenses(allExpenses);
-    setBudgets(allBudgets);
-    setMonthlyBudgetState(mb);
-    setBudgetSettingsState(bs);
+    try {
+      const [allExpenses, allBudgets, mb, bs] = await Promise.all([
+        getExpenses(),
+        getBudgets(),
+        getMonthlyBudget(currentMonth),
+        getBudgetSettingsApi(),
+      ]);
+      setExpenses(allExpenses);
+      setBudgets(allBudgets);
+      setMonthlyBudgetState(mb);
+      setBudgetSettingsState(bs);
+      setLoadError(null);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Couldn’t load your budgets.');
+    }
   }, [currentMonth]);
 
+  // Refresh on focus + on pull-to-refresh. Polling every 30s on an
+  // idle tab was a battery + data sink for no real benefit.
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(loadData, 30000);
-      return () => clearInterval(interval);
     }, [loadData])
   );
 
@@ -314,6 +320,23 @@ export default function BudgetsScreen() {
             <Ionicons name="add" size={24} color="#fff" />
           </Pressable>
         </View>
+
+        {loadError ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="cloud-offline-outline" size={18} color={colors.danger} />
+            <Text style={styles.errorBannerText} numberOfLines={2}>{loadError}</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                loadData();
+              }}
+              style={({ pressed }) => [styles.errorBannerBtn, pressed && { opacity: 0.7 }]}
+              testID="budgets-error-retry"
+            >
+              <Text style={styles.errorBannerBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <View style={styles.monthlyCard}>
@@ -1195,5 +1218,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: colors.primary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.danger + '12',
+    borderColor: colors.danger + '30',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.danger,
+  },
+  errorBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+  },
+  errorBannerBtnText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
 });

@@ -24,6 +24,8 @@ import {
   deleteExpense,
   formatPKR,
   getTotalExpenses,
+  parseLocalDate,
+  getLocalDayKey,
   CATEGORIES,
 } from '@/lib/storage';
 
@@ -80,7 +82,10 @@ function groupByMonth(expenses: Expense[]): PeriodGroup[] {
   if (!groups.has(currentKey)) groups.set(currentKey, []);
 
   for (const e of expenses) {
-    const d = new Date(e.date);
+    // parseLocalDate keeps the day in the user's wall-clock timezone.
+    // `new Date(e.date)` would parse "2026-05-04" as 00:00 UTC and
+    // shift expenses near midnight into the wrong month in PKT.
+    const d = parseLocalDate(e.date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(e);
@@ -105,15 +110,15 @@ function groupByWeek(expenses: Expense[]): PeriodGroup[] {
   if (expenses.length === 0) return [];
   const now = new Date();
   const currentMonday = getMonday(now);
-  const currentKey = currentMonday.toISOString().slice(0, 10);
+  const currentKey = getLocalDayKey(currentMonday);
   const groups = new Map<string, { monday: Date; expenses: Expense[] }>();
 
   if (!groups.has(currentKey)) groups.set(currentKey, { monday: currentMonday, expenses: [] });
 
   for (const e of expenses) {
-    const d = new Date(e.date);
+    const d = parseLocalDate(e.date);
     const monday = getMonday(d);
-    const key = monday.toISOString().slice(0, 10);
+    const key = getLocalDayKey(monday);
     if (!groups.has(key)) groups.set(key, { monday, expenses: [] });
     groups.get(key)!.expenses.push(e);
   }
@@ -133,14 +138,14 @@ function groupByWeek(expenses: Expense[]): PeriodGroup[] {
 function groupByDay(expenses: Expense[]): PeriodGroup[] {
   if (expenses.length === 0) return [];
   const now = new Date();
-  const todayKey = now.toISOString().slice(0, 10);
+  const todayKey = getLocalDayKey(now);
   const groups = new Map<string, { date: Date; expenses: Expense[] }>();
 
   if (!groups.has(todayKey)) groups.set(todayKey, { date: now, expenses: [] });
 
   for (const e of expenses) {
-    const d = new Date(e.date);
-    const key = d.toISOString().slice(0, 10);
+    const d = parseLocalDate(e.date);
+    const key = getLocalDayKey(d);
     if (!groups.has(key)) groups.set(key, { date: d, expenses: [] });
     groups.get(key)!.expenses.push(e);
   }
@@ -163,20 +168,28 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const loadExpenses = useCallback(async () => {
-    const all = await getExpenses();
-    setExpenses(all);
+    try {
+      const all = await getExpenses();
+      setExpenses(all);
+      setLoadError(null);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Couldn’t load history.');
+    }
   }, []);
 
+  // Refresh once on focus + on pull-to-refresh. The previous 30s
+  // background polling was burning battery + mobile data on idle tabs
+  // for no real benefit — useFocusEffect already covers tab switches
+  // and add-expense returns.
   useFocusEffect(
     useCallback(() => {
       loadExpenses();
-      const interval = setInterval(loadExpenses, 30000);
-      return () => clearInterval(interval);
     }, [loadExpenses])
   );
 
@@ -233,8 +246,12 @@ export default function HistoryScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteExpense(id);
-          await loadExpenses();
+          try {
+            await deleteExpense(id);
+            await loadExpenses();
+          } catch (err: any) {
+            Alert.alert('Couldn’t delete', err?.message || 'Please try again.');
+          }
         },
       },
     ]);
@@ -284,6 +301,23 @@ export default function HistoryScreen() {
           ))}
         </View>
       </View>
+
+      {loadError ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="cloud-offline-outline" size={18} color={colors.danger} />
+          <Text style={styles.errorBannerText} numberOfLines={2}>{loadError}</Text>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              loadExpenses();
+            }}
+            style={({ pressed }) => [styles.errorBannerBtn, pressed && { opacity: 0.7 }]}
+            testID="history-error-retry"
+          >
+            <Text style={styles.errorBannerBtnText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {expandedPeriod && groups.length > 0 && (
         <View style={styles.filterRow}>
@@ -723,5 +757,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
     color: colors.danger,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.danger + '12',
+    borderColor: colors.danger + '30',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.danger,
+  },
+  errorBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+  },
+  errorBannerBtnText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
 });

@@ -1,5 +1,4 @@
-import { apiRequest, getApiUrl } from '@/lib/query-client';
-import { fetch } from 'expo/fetch';
+import { apiRequest } from '@/lib/query-client';
 
 export interface Expense {
   id: string;
@@ -27,13 +26,12 @@ export interface MonthlyData {
 }
 
 export async function getExpenses(): Promise<Expense[]> {
-  try {
-    const res = await apiRequest('GET', '/api/expenses');
-    const data: Expense[] = await res.json();
-    return data.map(e => ({ ...e, category: normalizeCategoryKey(e.category) }));
-  } catch {
-    return [];
-  }
+  // Errors here propagate so the caller can show a banner + retry.
+  // Returning [] on failure (the previous behavior) made network
+  // outages look like "all your data is gone."
+  const res = await apiRequest('GET', '/api/expenses');
+  const data: Expense[] = await res.json();
+  return data.map(e => ({ ...e, category: normalizeCategoryKey(e.category) }));
 }
 
 export async function addExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {
@@ -51,13 +49,9 @@ export async function deleteExpense(id: string): Promise<void> {
 }
 
 export async function getBudgets(): Promise<Budget[]> {
-  try {
-    const res = await apiRequest('GET', '/api/budgets');
-    const data = await res.json();
-    return data.map((b: any) => ({ category: b.category, limit: b.limit, month: b.month }));
-  } catch {
-    return [];
-  }
+  const res = await apiRequest('GET', '/api/budgets');
+  const data = await res.json();
+  return data.map((b: any) => ({ category: b.category, limit: b.limit, month: b.month }));
 }
 
 export async function setBudget(budget: Budget): Promise<void> {
@@ -69,24 +63,16 @@ export async function deleteBudget(category: string, month: string): Promise<voi
 }
 
 export async function getMonthlyBudgets(): Promise<MonthlyBudget[]> {
-  try {
-    const res = await apiRequest('GET', '/api/monthly-budgets');
-    const data = await res.json();
-    return data.map((b: any) => ({ month: b.month, totalLimit: b.totalLimit }));
-  } catch {
-    return [];
-  }
+  const res = await apiRequest('GET', '/api/monthly-budgets');
+  const data = await res.json();
+  return data.map((b: any) => ({ month: b.month, totalLimit: b.totalLimit }));
 }
 
 export async function getMonthlyBudget(month: string): Promise<MonthlyBudget | null> {
-  try {
-    const res = await apiRequest('GET', `/api/monthly-budgets/${encodeURIComponent(month)}`);
-    const data = await res.json();
-    if (!data) return null;
-    return { month: data.month, totalLimit: data.totalLimit };
-  } catch {
-    return null;
-  }
+  const res = await apiRequest('GET', `/api/monthly-budgets/${encodeURIComponent(month)}`);
+  const data = await res.json();
+  if (!data) return null;
+  return { month: data.month, totalLimit: data.totalLimit };
 }
 
 export async function setMonthlyBudget(budget: MonthlyBudget): Promise<void> {
@@ -101,10 +87,22 @@ export function getMonthKey(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function parseLocalDate(dateString: string): Date {
+// Parse a YYYY-MM-DD (or ISO) string as a date in the user's local
+// timezone — NOT UTC. Critical for PKT (UTC+5): `new Date("2026-05-04")`
+// in JS is interpreted as 00:00 UTC, which is 05:00 PKT — same day —
+// but `new Date("2026-05-04T22:00:00Z")` is 03:00 PKT the NEXT day, so
+// any UTC bucketing will silently shift expenses near the day boundary.
+export function parseLocalDate(dateString: string): Date {
   const dateOnly = dateString.includes('T') ? dateString.split('T')[0] : dateString;
   const [year, month, day] = dateOnly.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+// Local-timezone day key (YYYY-MM-DD) for grouping. Use this everywhere
+// instead of `.toISOString().slice(0, 10)`, which leaks UTC into the
+// bucket and causes the off-by-one near midnight described above.
+export function getLocalDayKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 export function getExpensesForMonth(expenses: Expense[], monthKey: string): Expense[] {
@@ -187,14 +185,10 @@ export interface BudgetSettings {
 }
 
 export async function getBudgetSettingsApi(): Promise<BudgetSettings | null> {
-  try {
-    const res = await apiRequest('GET', '/api/budget-settings');
-    const data = await res.json();
-    if (!data) return null;
-    return { dailyLimit: data.dailyLimit, weeklyLimit: data.weeklyLimit };
-  } catch {
-    return null;
-  }
+  const res = await apiRequest('GET', '/api/budget-settings');
+  const data = await res.json();
+  if (!data) return null;
+  return { dailyLimit: data.dailyLimit, weeklyLimit: data.weeklyLimit };
 }
 
 export async function saveBudgetSettings(settings: Partial<BudgetSettings>): Promise<void> {

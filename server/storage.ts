@@ -86,25 +86,19 @@ export async function getBudgetsByUser(userId: string): Promise<Budget[]> {
 }
 
 export async function setBudgetForUser(userId: string, data: { category: string; limit: number; month: string }): Promise<Budget> {
-  return await db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(budgets)
-      .where(and(eq(budgets.userId, userId), eq(budgets.category, data.category), eq(budgets.month, data.month)))
-      .limit(1);
-
-    if (existing.length > 0) {
-      const [updated] = await tx
-        .update(budgets)
-        .set({ limit: data.limit })
-        .where(eq(budgets.id, existing[0].id))
-        .returning();
-      return updated;
-    } else {
-      const [budget] = await tx.insert(budgets).values({ userId, ...data }).returning();
-      return budget;
-    }
-  });
+  // Single-statement upsert. Backed by `budgets_user_category_month_idx`
+  // unique index — one row per (user, category, month). The previous
+  // check-then-insert was racy under concurrent saves and could lose
+  // an edit. onConflictDoUpdate is atomic.
+  const [budget] = await db
+    .insert(budgets)
+    .values({ userId, ...data })
+    .onConflictDoUpdate({
+      target: [budgets.userId, budgets.category, budgets.month],
+      set: { limit: data.limit },
+    })
+    .returning();
+  return budget;
 }
 
 export async function deleteBudgetForUser(userId: string, category: string, month: string): Promise<boolean> {
@@ -129,25 +123,18 @@ export async function getMonthlyBudgetForUser(userId: string, month: string): Pr
 }
 
 export async function setMonthlyBudgetForUser(userId: string, data: { month: string; totalLimit: number }): Promise<MonthlyBudget> {
-  return await db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(monthlyBudgets)
-      .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.month, data.month)))
-      .limit(1);
-
-    if (existing.length > 0) {
-      const [updated] = await tx
-        .update(monthlyBudgets)
-        .set({ totalLimit: data.totalLimit })
-        .where(eq(monthlyBudgets.id, existing[0].id))
-        .returning();
-      return updated;
-    } else {
-      const [budget] = await tx.insert(monthlyBudgets).values({ userId, ...data }).returning();
-      return budget;
-    }
-  });
+  // Backed by `monthly_budgets_user_month_idx` unique index — one
+  // total budget per (user, month). Race-free vs the previous
+  // check-then-insert.
+  const [budget] = await db
+    .insert(monthlyBudgets)
+    .values({ userId, ...data })
+    .onConflictDoUpdate({
+      target: [monthlyBudgets.userId, monthlyBudgets.month],
+      set: { totalLimit: data.totalLimit },
+    })
+    .returning();
+  return budget;
 }
 
 export async function deleteMonthlyBudgetForUser(userId: string, month: string): Promise<boolean> {

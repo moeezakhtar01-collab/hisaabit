@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -35,7 +35,12 @@ export const expenses = pgTable("expenses", {
   note: text("note").default(""),
   date: text("date").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // History queries always filter on userId and order by date desc.
+  // Without this, every list-load is a table scan once a power user
+  // crosses ~5k expenses. Cheap insurance to add now.
+  index("expenses_user_date_idx").on(table.userId, table.date),
+]);
 
 export const budgets = pgTable("budgets", {
   id: varchar("id")
@@ -45,7 +50,13 @@ export const budgets = pgTable("budgets", {
   category: text("category").notNull(),
   limit: integer("limit").notNull(),
   month: text("month").notNull(),
-});
+}, (table) => [
+  // One budget per category per month per user. The check-then-insert
+  // upsert in storage.ts is racy under concurrent saves — this index
+  // makes the duplicate impossible at the DB level. Once present we
+  // can switch the upsert to onConflictDoUpdate.
+  uniqueIndex("budgets_user_category_month_idx").on(table.userId, table.category, table.month),
+]);
 
 export const monthlyBudgets = pgTable("monthly_budgets", {
   id: varchar("id")
@@ -54,7 +65,11 @@ export const monthlyBudgets = pgTable("monthly_budgets", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   month: text("month").notNull(),
   totalLimit: integer("total_limit").notNull(),
-});
+}, (table) => [
+  // One total budget per month per user. Same race-condition guard as
+  // `budgets` above.
+  uniqueIndex("monthly_budgets_user_month_idx").on(table.userId, table.month),
+]);
 
 export const budgetSettings = pgTable("budget_settings", {
   id: varchar("id")
