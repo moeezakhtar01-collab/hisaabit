@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex, index, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -106,6 +106,20 @@ export const pendingExpenses = pgTable("pending_expenses", {
   status: text("status").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Externally-managed table — created and maintained by
+// `connect-pg-simple` (see server/routes.ts session config), NOT by
+// our migrations. Declared here only so `drizzle-kit push` doesn't
+// see it as an unknown table and try to drop it. Column shape mirrors
+// connect-pg-simple's table.sql exactly:
+// https://github.com/voxpelli/node-connect-pg-simple/blob/main/table.sql
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey().notNull(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => [
+  index("IDX_session_expire").on(table.expire),
+]);
 
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
