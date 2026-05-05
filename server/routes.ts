@@ -206,7 +206,7 @@ async function sendConfirmationEmail(email: string, token: string, requestHost?:
   `;
 
   const { data, error } = await resend.emails.send({
-    from: "Hisaabit <onboarding@resend.dev>",
+    from: "Hisaabit <noreply@hisaabit.com>",
     to: [email],
     subject: "Confirm your Hisaabit account",
     html: emailHtml,
