@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -65,6 +65,11 @@ export default function BudgetsScreen() {
   const [showWeeklyModal, setShowWeeklyModal] = useState(false);
   const [dailyAmount, setDailyAmount] = useState('');
   const [weeklyAmount, setWeeklyAmount] = useState('');
+  // Single inline-error string for whichever modal is currently open.
+  // Replaces the previous Alert.alert popups for validation messages.
+  // Cleared on every input change and on modal close so it doesn't
+  // linger from a previous attempt.
+  const [modalError, setModalError] = useState<string | null>(null);
   const currentMonth = getMonthKey();
 
   const loadData = useCallback(async () => {
@@ -93,6 +98,14 @@ export default function BudgetsScreen() {
     }, [loadData])
   );
 
+  // Clear the inline modal error when no modal is open. Means the
+  // user never re-opens a modal with a stale "exceeds budget" message.
+  useEffect(() => {
+    if (!showCategoryModal && !showMonthlyModal && !showDailyModal && !showWeeklyModal) {
+      setModalError(null);
+    }
+  }, [showCategoryModal, showMonthlyModal, showDailyModal, showWeeklyModal]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
@@ -112,6 +125,7 @@ export default function BudgetsScreen() {
     setEditingBudget(null);
     setSelectedCategory('');
     setBudgetAmount('');
+    setModalError(null);
     setShowCategoryModal(true);
   };
 
@@ -120,19 +134,24 @@ export default function BudgetsScreen() {
     setEditingBudget(budget);
     setSelectedCategory(budget.category);
     setBudgetAmount(budget.limit.toString());
+    setModalError(null);
     setShowCategoryModal(true);
   };
 
   const currentCategoryTotal = monthBudgets.reduce((sum, b) => sum + b.limit, 0);
 
   const handleSaveCategoryBudget = async () => {
-    if (!selectedCategory || !budgetAmount) {
-      Alert.alert('Missing Info', 'Please select a category and enter a budget amount');
+    if (!selectedCategory) {
+      setModalError('Choose a category first');
+      return;
+    }
+    if (!budgetAmount) {
+      setModalError('Enter a budget amount');
       return;
     }
     const amount = parseInt(budgetAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid budget amount');
+      setModalError('Enter a valid budget amount');
       return;
     }
 
@@ -141,21 +160,25 @@ export default function BudgetsScreen() {
       const newTotal = currentCategoryTotal - existingForCategory + amount;
       if (newTotal > monthlyLimit) {
         const available = monthlyLimit - (currentCategoryTotal - existingForCategory);
-        Alert.alert(
-          'Exceeds Monthly Budget',
-          `This would bring your category budgets total to ${formatPKR(newTotal)}, which exceeds your monthly budget of ${formatPKR(monthlyLimit)}.\n\nYou can set up to ${formatPKR(Math.max(available, 0))} for this category.`
+        setModalError(
+          `Exceeds monthly budget. You can set up to ${formatPKR(Math.max(available, 0))} here.`,
         );
         return;
       }
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await setBudget({ category: selectedCategory, limit: amount, month: currentMonth });
-    await loadData();
-    setShowCategoryModal(false);
-    setSelectedCategory('');
-    setBudgetAmount('');
-    setEditingBudget(null);
+    setModalError(null);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await setBudget({ category: selectedCategory, limit: amount, month: currentMonth });
+      await loadData();
+      setShowCategoryModal(false);
+      setSelectedCategory('');
+      setBudgetAmount('');
+      setEditingBudget(null);
+    } catch (err: any) {
+      setModalError(err?.message || 'Couldn’t save budget. Please try again.');
+    }
   };
 
   const handleDeleteBudget = (category: string) => {
@@ -166,8 +189,12 @@ export default function BudgetsScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          await deleteBudget(category, currentMonth);
-          await loadData();
+          try {
+            await deleteBudget(category, currentMonth);
+            await loadData();
+          } catch (err: any) {
+            Alert.alert('Couldn’t remove', err?.message || 'Please try again.');
+          }
         },
       },
     ]);
@@ -175,90 +202,105 @@ export default function BudgetsScreen() {
 
   const openMonthlyBudgetModal = () => {
     setMonthlyAmount(monthlyLimit > 0 ? monthlyLimit.toString() : '');
+    setModalError(null);
     setShowMonthlyModal(true);
   };
 
   const handleSaveMonthlyBudget = async () => {
     if (!monthlyAmount) {
-      Alert.alert('Missing Amount', 'Please enter your monthly budget');
+      setModalError('Enter your monthly budget');
       return;
     }
     const amount = parseInt(monthlyAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      setModalError('Enter a valid amount');
       return;
     }
-
     if (amount > 1000000) {
-      Alert.alert('Too High', 'Monthly budget cannot exceed Rs. 10,00,000');
+      setModalError('Monthly budget can’t exceed Rs. 10,00,000');
       return;
     }
-
     if (currentCategoryTotal > 0 && amount < currentCategoryTotal) {
-      Alert.alert(
-        'Budget Too Low',
-        `Your category budgets already total ${formatPKR(currentCategoryTotal)}. The monthly budget must be at least this amount.\n\nReduce your category budgets first, or set a higher monthly budget.`
+      setModalError(
+        `Your category budgets already total ${formatPKR(currentCategoryTotal)}. Set a higher monthly budget or reduce category budgets first.`,
       );
       return;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await setMonthlyBudget({ month: currentMonth, totalLimit: amount });
-    await loadData();
-    setShowMonthlyModal(false);
-    setMonthlyAmount('');
+    setModalError(null);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await setMonthlyBudget({ month: currentMonth, totalLimit: amount });
+      await loadData();
+      setShowMonthlyModal(false);
+      setMonthlyAmount('');
+    } catch (err: any) {
+      setModalError(err?.message || 'Couldn’t save budget. Please try again.');
+    }
   };
 
   const openDailyModal = () => {
     setDailyAmount(budgetSettings?.dailyLimit ? budgetSettings.dailyLimit.toString() : '');
+    setModalError(null);
     setShowDailyModal(true);
   };
 
   const openWeeklyModal = () => {
     setWeeklyAmount(budgetSettings?.weeklyLimit ? budgetSettings.weeklyLimit.toString() : '');
+    setModalError(null);
     setShowWeeklyModal(true);
   };
 
   const handleSaveDailyBudget = async () => {
     if (!dailyAmount) {
-      Alert.alert('Missing Amount', 'Please enter your daily budget');
+      setModalError('Enter your daily budget');
       return;
     }
     const amount = parseInt(dailyAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      setModalError('Enter a valid amount');
       return;
     }
     if (amount > 100000) {
-      Alert.alert('Too High', 'Daily budget cannot exceed Rs. 100,000');
+      setModalError('Daily budget can’t exceed Rs. 100,000');
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await saveBudgetSettings({ dailyLimit: amount });
-    await loadData();
-    setShowDailyModal(false);
-    setDailyAmount('');
+    setModalError(null);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await saveBudgetSettings({ dailyLimit: amount });
+      await loadData();
+      setShowDailyModal(false);
+      setDailyAmount('');
+    } catch (err: any) {
+      setModalError(err?.message || 'Couldn’t save budget. Please try again.');
+    }
   };
 
   const handleSaveWeeklyBudget = async () => {
     if (!weeklyAmount) {
-      Alert.alert('Missing Amount', 'Please enter your weekly budget');
+      setModalError('Enter your weekly budget');
       return;
     }
     const amount = parseInt(weeklyAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      setModalError('Enter a valid amount');
       return;
     }
     if (amount > 700000) {
-      Alert.alert('Too High', 'Weekly budget cannot exceed Rs. 700,000');
+      setModalError('Weekly budget can’t exceed Rs. 700,000');
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await saveBudgetSettings({ weeklyLimit: amount });
-    await loadData();
-    setShowWeeklyModal(false);
-    setWeeklyAmount('');
+    setModalError(null);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await saveBudgetSettings({ weeklyLimit: amount });
+      await loadData();
+      setShowWeeklyModal(false);
+      setWeeklyAmount('');
+    } catch (err: any) {
+      setModalError(err?.message || 'Couldn’t save budget. Please try again.');
+    }
   };
 
   const handleRemoveDailyBudget = () => {
@@ -269,10 +311,14 @@ export default function BudgetsScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          await saveBudgetSettings({ dailyLimit: null });
-          await loadData();
-          setShowDailyModal(false);
-          setDailyAmount('');
+          try {
+            await saveBudgetSettings({ dailyLimit: null });
+            await loadData();
+            setShowDailyModal(false);
+            setDailyAmount('');
+          } catch (err: any) {
+            setModalError(err?.message || 'Couldn’t remove. Please try again.');
+          }
         },
       },
     ]);
@@ -286,10 +332,14 @@ export default function BudgetsScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          await saveBudgetSettings({ weeklyLimit: null });
-          await loadData();
-          setShowWeeklyModal(false);
-          setWeeklyAmount('');
+          try {
+            await saveBudgetSettings({ weeklyLimit: null });
+            await loadData();
+            setShowWeeklyModal(false);
+            setWeeklyAmount('');
+          } catch (err: any) {
+            setModalError(err?.message || 'Couldn’t remove. Please try again.');
+          }
         },
       },
     ]);
@@ -558,7 +608,7 @@ export default function BudgetsScreen() {
               ))}
             </View>
 
-            <Text style={styles.modalSectionLabel}>Monthly Limit (PKR)</Text>
+            <Text style={styles.modalSectionLabel}>Monthly Limit (Rs.)</Text>
             <TextInput
               style={styles.amountInput}
               value={budgetAmount}
@@ -581,6 +631,13 @@ export default function BudgetsScreen() {
               </View>
             )}
 
+            {modalError ? (
+              <View style={styles.modalErrorBox}>
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                <Text style={styles.modalErrorText} numberOfLines={3}>{modalError}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.modalButtonRow}>
               <Pressable
                 onPress={handleSaveCategoryBudget}
@@ -590,7 +647,7 @@ export default function BudgetsScreen() {
                 ]}
               >
                 <Text style={styles.saveButtonText}>
-                  {editingBudget ? 'Update Budget' : 'Save Budget'}
+                  {editingBudget ? 'Update' : 'Save'}
                 </Text>
               </Pressable>
               {editingBudget ? (
@@ -661,6 +718,13 @@ export default function BudgetsScreen() {
                 />
               </View>
 
+              {modalError ? (
+                <View style={[styles.modalErrorBox, { alignSelf: 'stretch', marginTop: 16 }]}>
+                  <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.modalErrorText} numberOfLines={3}>{modalError}</Text>
+                </View>
+              ) : null}
+
               <Pressable
                 onPress={handleSaveMonthlyBudget}
                 style={({ pressed }) => [
@@ -670,7 +734,7 @@ export default function BudgetsScreen() {
                 ]}
               >
                 <Text style={styles.saveButtonText}>
-                  {monthlyLimit > 0 ? 'Update Budget' : 'Set Budget'}
+                  {monthlyLimit > 0 ? 'Update' : 'Save'}
                 </Text>
               </Pressable>
             </ScrollView>
@@ -725,6 +789,13 @@ export default function BudgetsScreen() {
                 />
               </View>
 
+              {modalError ? (
+                <View style={[styles.modalErrorBox, { alignSelf: 'stretch', marginTop: 16 }]}>
+                  <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.modalErrorText} numberOfLines={3}>{modalError}</Text>
+                </View>
+              ) : null}
+
               <Pressable
                 onPress={handleSaveDailyBudget}
                 style={({ pressed }) => [
@@ -734,7 +805,7 @@ export default function BudgetsScreen() {
                 ]}
               >
                 <Text style={styles.saveButtonText}>
-                  {budgetSettings?.dailyLimit ? 'Update Budget' : 'Set Budget'}
+                  {budgetSettings?.dailyLimit ? 'Update' : 'Save'}
                 </Text>
               </Pressable>
               {budgetSettings?.dailyLimit ? (
@@ -802,6 +873,13 @@ export default function BudgetsScreen() {
                 />
               </View>
 
+              {modalError ? (
+                <View style={[styles.modalErrorBox, { alignSelf: 'stretch', marginTop: 16 }]}>
+                  <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.modalErrorText} numberOfLines={3}>{modalError}</Text>
+                </View>
+              ) : null}
+
               <Pressable
                 onPress={handleSaveWeeklyBudget}
                 style={({ pressed }) => [
@@ -811,7 +889,7 @@ export default function BudgetsScreen() {
                 ]}
               >
                 <Text style={styles.saveButtonText}>
-                  {budgetSettings?.weeklyLimit ? 'Update Budget' : 'Set Budget'}
+                  {budgetSettings?.weeklyLimit ? 'Update' : 'Save'}
                 </Text>
               </Pressable>
               {budgetSettings?.weeklyLimit ? (
@@ -1248,5 +1326,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  modalErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: colors.danger + '12',
+    borderColor: colors.danger + '30',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+  },
+  modalErrorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.danger,
+    lineHeight: 18,
   },
 });

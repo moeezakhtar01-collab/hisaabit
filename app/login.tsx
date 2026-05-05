@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useColors } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import type { lightColors } from '@/constants/colors';
@@ -23,7 +23,11 @@ export default function LoginScreen() {
   const colors = useColors();
   const styles = createStyles(colors);
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  // After register, we route here with `?email=…` so the user doesn't
+  // have to retype their address. Password is intentionally never
+  // forwarded — that would expose it via deep-link history.
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(params.email || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,6 +35,16 @@ export default function LoginScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  // If we arrived here from a successful registration with the email
+  // already filled, focus the password field directly so the keyboard
+  // is ready for the only thing left to type.
+  useEffect(() => {
+    if (params.email) {
+      const t = setTimeout(() => passwordRef.current?.focus(), 250);
+      return () => clearTimeout(t);
+    }
+  }, [params.email]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {

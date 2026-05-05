@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeOut, SlideInRight } from 'react-native-reanimated';
 import { useColors } from '@/lib/theme-context';
 import { type ThemeColors } from '@/constants/colors';
@@ -28,8 +29,13 @@ export default function ExpenseCard({ expense, onDelete, onEdit, index }: Expens
           pressed && styles.cardPressed,
         ]}
         onPress={() => onEdit?.(expense)}
+        // Long-press still works for power users who don't want the
+        // visible button (kept for backwards compatibility), but the
+        // discoverable trash icon below is now the primary affordance.
         onLongPress={() => onDelete(expense.id)}
         delayLongPress={500}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${getCategoryLabel(expense.category)} expense, ${formatPKR(expense.amount)}`}
       >
         <View style={[styles.iconContainer, { backgroundColor: categoryColor + '15' }]}>
           <Ionicons
@@ -52,6 +58,19 @@ export default function ExpenseCard({ expense, onDelete, onEdit, index }: Expens
           <Text style={styles.amount}>{formatPKR(expense.amount)}</Text>
           <Text style={styles.date}>{formatDate(expense.date)}</Text>
         </View>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onDelete(expense.id);
+          }}
+          hitSlop={10}
+          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.6 }]}
+          accessibilityLabel="Delete expense"
+          testID={`expense-delete-${expense.id}`}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+        </Pressable>
       </Pressable>
     </Animated.View>
   );
@@ -109,5 +128,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     color: colors.textSecondary,
+  },
+  deleteBtn: {
+    marginLeft: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
 });

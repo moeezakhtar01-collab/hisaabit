@@ -261,7 +261,7 @@ export default function SmsExpensesScreen() {
 
             {/* Amount */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Amount (PKR)</Text>
+              <Text style={styles.fieldLabel}>Amount (Rs.)</Text>
               <TextInput
                 style={styles.input}
                 value={editAmount}

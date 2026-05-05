@@ -62,7 +62,7 @@ function ManualExpenseSlide({ accent }: SlideProps) {
         {'  '}button on the home screen to add an expense.
       </Animated.Text>
       <Animated.Text entering={FadeIn.delay(1050).duration(500)} style={s.slideSubtle}>
-        Pick a category, enter the amount in PKR, add a note — done.
+        Pick a category, enter the amount in Rupees, add a note — done.
       </Animated.Text>
     </View>
   );

@@ -2,6 +2,62 @@ import { createContext, useContext, useState, useEffect, useMemo, ReactNode } fr
 import { getApiUrl } from '@/lib/query-client';
 import { fetch } from 'expo/fetch';
 
+// Default per-request timeout for auth flows. Mobile networks stall —
+// without this the spinner spins forever on a hung connection. Mirrors
+// the apiRequest behavior in lib/query-client.ts.
+const AUTH_TIMEOUT_MS = 30_000;
+
+// Wraps fetch with a 30s AbortController + maps low-level errors
+// (timeout, no network, DNS) to user-actionable strings instead of
+// surfacing TypeError or stack traces. The screens then just display
+// `err.message` directly.
+async function authFetch(
+  url: string,
+  init: { method?: string; body?: string; credentials?: RequestCredentials },
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: init.method,
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: init.body,
+      credentials: init.credentials ?? 'include',
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: unknown) {
+    const e = err as { name?: string };
+    if (e?.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection.');
+    }
+    throw new Error('Cannot reach server. Check your connection.');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Reads JSON safely from a Response — returns the parsed object,
+// or throws a friendly error if the body is non-JSON (e.g. an HTML
+// error page from a proxy/gateway). Used everywhere we need to read
+// the server's `error` field cleanly.
+async function readJsonOrThrow(res: Response, fallback: string): Promise<any> {
+  const text = await res.text();
+  let data: any;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error('Cannot reach server. Check your connection.');
+  }
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || fallback);
+  }
+  return data;
+}
+
 interface AuthUser {
   id: string;
   email: string;
@@ -57,33 +113,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/login', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/login', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
-    const text = await res.text();
-    let data: any;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error('Cannot reach server. Check your connection.');
-    }
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await readJsonOrThrow(res, 'Login failed');
     setUser(data.user);
   };
 
   const register = async (name: string, email: string, password: string): Promise<string> => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/register', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/register', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      credentials: 'include',
       body: JSON.stringify({ name, email, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const data = await readJsonOrThrow(res, 'Registration failed');
     return data.message;
   };
 
@@ -101,51 +145,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const forgotPassword = async (email: string): Promise<string> => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/forgot-password', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/forgot-password', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ email }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    const data = await readJsonOrThrow(res, 'Request failed');
     return data.message;
   };
 
   const resendConfirmation = async (email: string): Promise<string> => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/resend-confirmation', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/resend-confirmation', baseUrl).toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ email }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    const data = await readJsonOrThrow(res, 'Request failed');
     return data.message;
   };
 
   const updateProfile = async (name: string) => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/profile', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/profile', baseUrl).toString(), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      credentials: 'include',
       body: JSON.stringify({ name }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Update failed');
+    const data = await readJsonOrThrow(res, 'Update failed');
     setUser(data.user);
   };
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<string> => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/password', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/password', baseUrl).toString(), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      credentials: 'include',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Password change failed');
+    const data = await readJsonOrThrow(res, 'Password change failed');
     return data.message;
   };
 
@@ -178,14 +212,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteAccount = async (password: string) => {
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL('/api/auth/account', baseUrl).toString(), {
+    const res = await authFetch(new URL('/api/auth/account', baseUrl).toString(), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      credentials: 'include',
       body: JSON.stringify({ password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Account deletion failed');
+    await readJsonOrThrow(res, 'Account deletion failed');
     setUser(null);
   };
 

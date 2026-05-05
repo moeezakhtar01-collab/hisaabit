@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   Modal,
@@ -42,10 +41,15 @@ function formatDateLabel(date: Date): string {
   return `${DAYS_OF_WEEK[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+// 90 days of backfill range. Pakistani users routinely log expenses
+// from the previous month or two (rent receipts, utility bills, etc.).
+// 30 days was forcing them to give up.
+const DATE_PICKER_DAYS = 90;
+
 function generateDateOptions(): Date[] {
   const dates: Date[] = [];
   const today = new Date();
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < DATE_PICKER_DAYS; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     d.setHours(12, 0, 0, 0);
@@ -83,11 +87,19 @@ export default function AddExpenseScreen() {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Inline form error (replaces the previous Alert.alert popups). Cleared
+  // on every input change so the user gets immediate feedback.
+  const [formError, setFormError] = useState<string | null>(null);
+  // Brief overlay shown after a successful save, before router.back().
+  // Adds visible confirmation that haptic alone doesn't provide on
+  // Android (where the buzz can be subtle on some devices).
+  const [savedFlash, setSavedFlash] = useState(false);
   const dateOptions = useMemo(() => generateDateOptions(), []);
 
   const handleAmountChange = (text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '');
     setAmount(cleaned);
+    if (formError) setFormError(null);
   };
 
   const handleQuickAmount = (value: number) => {
@@ -103,13 +115,14 @@ export default function AddExpenseScreen() {
 
   const handleSave = async () => {
     if (!amount || parseInt(amount) <= 0) {
-      Alert.alert('Enter Amount', 'Please enter a valid amount');
+      setFormError('Enter an amount greater than zero');
       return;
     }
     if (!selectedCategory) {
-      Alert.alert('Select Category', 'Please choose a category for this expense');
+      setFormError('Choose a category for this expense');
       return;
     }
+    setFormError(null);
 
     setSaving(true);
     try {
@@ -137,9 +150,12 @@ export default function AddExpenseScreen() {
       // Show interstitial ad every 4th save (if ads not removed)
       await maybeShowInterstitial(user?.adsRemoved);
 
-      router.back();
-    } catch {
-      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'save'} expense. Please try again.`);
+      // Brief visual confirmation. ~700ms is the sweet spot — long
+      // enough to register, short enough not to feel like a delay.
+      setSavedFlash(true);
+      setTimeout(() => router.back(), 700);
+    } catch (err: any) {
+      setFormError(err?.message || `Couldn’t ${isEditing ? 'update' : 'save'} expense. Please try again.`);
       setSaving(false);
     }
   };
@@ -168,7 +184,7 @@ export default function AddExpenseScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View entering={FadeIn.duration(400)} style={styles.amountSection}>
-          <Text style={styles.currencyLabel}>PKR</Text>
+          <Text style={styles.currencyLabel}>Rs.</Text>
           <TextInput
             style={styles.amountInput}
             value={amount}
@@ -253,12 +269,19 @@ export default function AddExpenseScreen() {
             style={styles.noteInput}
             value={note}
             onChangeText={setNote}
-            placeholder="e.g. Weekly groceries from Imtiaz"
+            placeholder="e.g. Weekly groceries"
             placeholderTextColor={colors.textSecondary}
             multiline
             maxLength={100}
           />
         </Animated.View>
+
+        {formError ? (
+          <Animated.View entering={FadeIn.duration(180)} style={styles.formErrorBox}>
+            <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <Text style={styles.formErrorText} numberOfLines={2}>{formError}</Text>
+          </Animated.View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.delay(400).duration(400)}>
           <Pressable
@@ -272,11 +295,22 @@ export default function AddExpenseScreen() {
           >
             <Ionicons name="checkmark" size={22} color="#fff" />
             <Text style={styles.saveButtonText}>
-              {saving ? 'Saving...' : isEditing ? 'Update Expense' : 'Save Expense'}
+              {saving ? 'Saving…' : isEditing ? 'Update' : 'Save'}
             </Text>
           </Pressable>
         </Animated.View>
       </ScrollView>
+
+      {savedFlash ? (
+        <Animated.View entering={FadeIn.duration(180)} style={styles.savedFlashOverlay} pointerEvents="none">
+          <View style={styles.savedFlashCard}>
+            <View style={styles.savedFlashIconBg}>
+              <Ionicons name="checkmark" size={32} color="#fff" />
+            </View>
+            <Text style={styles.savedFlashText}>Saved</Text>
+          </View>
+        </Animated.View>
+      ) : null}
 
       <Modal
         visible={showDatePicker}
@@ -503,5 +537,62 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dateOptionTextSelected: {
     fontFamily: 'Inter_700Bold',
     color: colors.primary,
+  },
+  formErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.danger + '12',
+    borderColor: colors.danger + '30',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    marginTop: -8,
+    marginBottom: 4,
+  },
+  formErrorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.danger,
+  },
+  savedFlashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  savedFlashCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  savedFlashIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedFlashText: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
+    letterSpacing: 0.3,
   },
 });

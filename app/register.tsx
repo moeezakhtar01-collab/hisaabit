@@ -103,7 +103,9 @@ export default function RegisterScreen() {
               <View style={styles.successContent}>
                 <Text style={styles.successText}>{successMessage}</Text>
                 <Pressable
-                  onPress={() => router.replace('/login')}
+                  onPress={() =>
+                    router.replace({ pathname: '/login', params: { email: email.trim() } })
+                  }
                   style={({ pressed }) => [styles.goToLoginBtn, pressed && { opacity: 0.8 }]}
                 >
                   <Text style={styles.goToLoginText}>Go to Login</Text>

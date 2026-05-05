@@ -18,7 +18,7 @@ import type { lightColors } from '@/constants/colors';
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 const FEATURES = [
-  { icon: 'wallet-outline' as const, label: 'Track daily expenses in PKR' },
+  { icon: 'wallet-outline' as const, label: 'Track daily expenses in Rupees' },
   { icon: 'mic-outline' as const, label: 'Voice expenses in Urdu, Roman Urdu or English' },
   { icon: 'pie-chart-outline' as const, label: 'Daily, weekly and monthly budget tracking' },
   { icon: 'bar-chart-outline' as const, label: 'Spending charts by category' },
