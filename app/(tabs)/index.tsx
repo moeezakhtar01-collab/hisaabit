@@ -47,6 +47,11 @@ export default function HomeScreen() {
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // True until the very first load (success or fail) completes. Used
+  // to show skeleton placeholders instead of misleading "Rs. 0" or
+  // "Welcome to Hisaabit" empty-state UI on cold start while the
+  // expense list is still in flight.
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [chartPeriod, setChartPeriod] = useState<PeriodTab>('monthly');
   const [smsPendingCount, setSmsPendingCount] = useState(0);
   const currentMonth = getMonthKey();
@@ -64,6 +69,8 @@ export default function HomeScreen() {
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.message || 'Couldn’t load your data.');
+    } finally {
+      setIsInitialLoad(false);
     }
   }, [currentMonth]);
 
@@ -172,7 +179,11 @@ export default function HomeScreen() {
               <Ionicons name="calendar" size={18} color={colors.primary} />
             </View>
             <Text style={styles.summaryLabel} numberOfLines={1}>Spent This Month</Text>
-            <AnimatedAmount value={totalThisMonth} formatter={formatPKR} style={styles.summaryAmount} />
+            {isInitialLoad ? (
+              <View style={styles.summaryAmountSkeleton} />
+            ) : (
+              <AnimatedAmount value={totalThisMonth} formatter={formatPKR} style={styles.summaryAmount} />
+            )}
           </View>
           {monthlyBudget && monthlyBudget.totalLimit > 0 ? (
             <View style={styles.summaryCard}>
@@ -188,14 +199,18 @@ export default function HomeScreen() {
               <Text style={styles.summaryLabel} numberOfLines={1}>
                 {monthlyBudget.totalLimit - totalThisMonth >= 0 ? 'Left This Month' : 'Over Budget'}
               </Text>
-              <AnimatedAmount
-                value={Math.abs(monthlyBudget.totalLimit - totalThisMonth)}
-                formatter={formatPKR}
-                style={[
-                  styles.summaryAmount,
-                  { color: monthlyBudget.totalLimit - totalThisMonth >= 0 ? colors.success : colors.danger },
-                ]}
-              />
+              {isInitialLoad ? (
+                <View style={styles.summaryAmountSkeleton} />
+              ) : (
+                <AnimatedAmount
+                  value={Math.abs(monthlyBudget.totalLimit - totalThisMonth)}
+                  formatter={formatPKR}
+                  style={[
+                    styles.summaryAmount,
+                    { color: monthlyBudget.totalLimit - totalThisMonth >= 0 ? colors.success : colors.danger },
+                  ]}
+                />
+              )}
             </View>
           ) : (
             <View style={styles.summaryCard}>
@@ -203,12 +218,16 @@ export default function HomeScreen() {
                 <Ionicons name="today" size={18} color={colors.accent} />
               </View>
               <Text style={styles.summaryLabel} numberOfLines={1}>Today</Text>
-              <AnimatedAmount value={todayTotal} formatter={formatPKR} style={styles.summaryAmount} />
+              {isInitialLoad ? (
+                <View style={styles.summaryAmountSkeleton} />
+              ) : (
+                <AnimatedAmount value={todayTotal} formatter={formatPKR} style={styles.summaryAmount} />
+              )}
             </View>
           )}
         </Animated.View>
 
-        {expenses.length === 0 && (
+        {!isInitialLoad && expenses.length === 0 && (
           <Animated.View entering={FadeInDown.delay(110).duration(500)} style={styles.welcomeCard}>
             <View style={styles.welcomeIconBg}>
               <Ionicons name="sparkles" size={22} color={colors.primary} />
@@ -715,5 +734,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  summaryAmountSkeleton: {
+    height: 22,
+    width: '70%',
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    opacity: 0.7,
+    marginTop: 2,
   },
 });

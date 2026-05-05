@@ -169,6 +169,11 @@ export default function HistoryScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // True until the very first load (success or fail) completes.
+  // Suppresses the "Your history starts here" empty-state banner
+  // during the cold-start window so users don't see it flash before
+  // their data arrives.
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -180,6 +185,8 @@ export default function HistoryScreen() {
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.message || 'Couldn’t load history.');
+    } finally {
+      setIsInitialLoad(false);
     }
   }, []);
 
@@ -469,6 +476,20 @@ export default function HistoryScreen() {
           return null;
         }}
         ListEmptyComponent={
+          isInitialLoad ? (
+            <View style={styles.skeletonList}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={styles.skeletonPeriodCard}>
+                  <View style={styles.skeletonIconBlock} />
+                  <View style={styles.skeletonTextCol}>
+                    <View style={[styles.skeletonBar, { width: '40%' }]} />
+                    <View style={[styles.skeletonBar, { width: '25%', marginTop: 6 }]} />
+                  </View>
+                  <View style={[styles.skeletonBar, { width: 60, height: 14 }]} />
+                </View>
+              ))}
+            </View>
+          ) : (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
               <Ionicons name="receipt-outline" size={36} color={colors.primary} />
@@ -502,6 +523,7 @@ export default function HistoryScreen() {
               </Pressable>
             </View>
           </View>
+          )
         }
       />
 
@@ -788,5 +810,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  skeletonList: {
+    gap: 8,
+    paddingTop: 8,
+  },
+  skeletonPeriodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  skeletonIconBlock: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    opacity: 0.7,
+  },
+  skeletonTextCol: {
+    flex: 1,
+  },
+  skeletonBar: {
+    height: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    opacity: 0.7,
   },
 });

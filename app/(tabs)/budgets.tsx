@@ -54,6 +54,11 @@ export default function BudgetsScreen() {
   const [monthlyBudget, setMonthlyBudgetState] = useState<MonthlyBudget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // True until the very first load (success or fail) completes.
+  // Used to render skeleton placeholders for the monthly budget
+  // amounts on cold start instead of "Rs. 0" + "no budget set yet"
+  // empty UI flashing before real data arrives.
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -87,6 +92,8 @@ export default function BudgetsScreen() {
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.message || 'Couldn’t load your budgets.');
+    } finally {
+      setIsInitialLoad(false);
     }
   }, [currentMonth]);
 
@@ -407,7 +414,24 @@ export default function BudgetsScreen() {
               </Pressable>
             </View>
 
-            {monthlyLimit > 0 ? (
+            {isInitialLoad ? (
+              <View style={styles.monthlyAmounts}>
+                <View style={styles.monthlyAmountItem}>
+                  <View style={[styles.skeletonBar, { width: '50%' }]} />
+                  <View style={[styles.skeletonBar, { width: '70%', height: 18, marginTop: 6 }]} />
+                </View>
+                <View style={styles.monthlyDivider} />
+                <View style={styles.monthlyAmountItem}>
+                  <View style={[styles.skeletonBar, { width: '50%' }]} />
+                  <View style={[styles.skeletonBar, { width: '70%', height: 18, marginTop: 6 }]} />
+                </View>
+                <View style={styles.monthlyDivider} />
+                <View style={styles.monthlyAmountItem}>
+                  <View style={[styles.skeletonBar, { width: '50%' }]} />
+                  <View style={[styles.skeletonBar, { width: '70%', height: 18, marginTop: 6 }]} />
+                </View>
+              </View>
+            ) : monthlyLimit > 0 ? (
               <>
                 <View style={styles.monthlyAmounts}>
                   <View style={styles.monthlyAmountItem}>
@@ -1345,5 +1369,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: colors.danger,
     lineHeight: 18,
+  },
+  skeletonBar: {
+    height: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    opacity: 0.7,
   },
 });

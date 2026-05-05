@@ -1,6 +1,36 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '@/lib/query-client';
 import { fetch } from 'expo/fetch';
+
+// Persist the user object across app launches. Without this, the
+// splash screen blocks the entire UI behind a network round-trip to
+// /api/auth/me on every cold start (~500ms PKT → Singapore). Cache
+// hydration happens in <50ms; the network validation happens in the
+// background. If validation returns 401 we kick to login then.
+const USER_CACHE_KEY = 'hisaabit:user';
+
+async function loadCachedUser(): Promise<AuthUser | null> {
+  try {
+    const raw = await AsyncStorage.getItem(USER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function persistUser(user: AuthUser | null): Promise<void> {
+  try {
+    if (user) {
+      await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(USER_CACHE_KEY);
+    }
+  } catch {
+    // Cache failures are non-fatal — the app still works without it,
+    // just slower on next launch.
+  }
+}
 
 // Default per-request timeout for auth flows. Mobile networks stall —
 // without this the spinner spins forever on a hung connection. Mirrors
@@ -91,10 +121,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    bootstrapAuth();
   }, []);
 
-  const checkAuth = async () => {
+  // Boot sequence: hydrate the cached user (instant), then validate
+  // the session against the server in the background. If the network
+  // call comes back 401, the cached user is stale — clear and bounce
+  // to login. Network errors are tolerated: keep the cached user so
+  // a brief outage doesn't log everyone out.
+  const bootstrapAuth = async () => {
+    const cached = await loadCachedUser();
+    if (cached) {
+      setUser(cached);
+    }
+    setIsLoading(false);
+    // Background validate — does not block render.
+    validateSession();
+  };
+
+  const validateSession = async () => {
     try {
       const baseUrl = getApiUrl();
       const res = await fetch(new URL('/api/auth/me', baseUrl).toString(), {
@@ -104,10 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        await persistUser(data.user);
+      } else if (res.status === 401) {
+        setUser(null);
+        await persistUser(null);
       }
+      // Other status codes (5xx, 502 from a Railway redeploy, etc.)
+      // we treat as transient — keep the cached user.
     } catch {
-    } finally {
-      setIsLoading(false);
+      // Network unreachable — also transient, keep cached user.
     }
   };
 
@@ -119,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await readJsonOrThrow(res, 'Login failed');
     setUser(data.user);
+    await persistUser(data.user);
   };
 
   const register = async (name: string, email: string, password: string): Promise<string> => {
@@ -141,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch {}
     setUser(null);
+    await persistUser(null);
   };
 
   const forgotPassword = async (email: string): Promise<string> => {
@@ -171,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await readJsonOrThrow(res, 'Update failed');
     setUser(data.user);
+    await persistUser(data.user);
   };
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<string> => {
@@ -193,13 +246,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        await persistUser(data.user);
       }
     } catch {}
   };
 
   const markDemoSeen = async () => {
     // Optimistic local update so the gate doesn't flash the demo again.
-    setUser((prev) => (prev ? { ...prev, hasSeenDemo: true } : prev));
+    setUser((prev) => {
+      const next = prev ? { ...prev, hasSeenDemo: true } : prev;
+      // Persist optimistically too so the next cold launch doesn't
+      // flash the demo before the server roundtrip lands.
+      if (next) {
+        persistUser(next).catch(() => {});
+      }
+      return next;
+    });
     try {
       const baseUrl = getApiUrl();
       await fetch(new URL('/api/auth/mark-demo-seen', baseUrl).toString(), {
@@ -218,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     await readJsonOrThrow(res, 'Account deletion failed');
     setUser(null);
+    await persistUser(null);
   };
 
   const value = useMemo(() => ({
