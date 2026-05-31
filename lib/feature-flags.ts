@@ -117,6 +117,8 @@
  * ---------------------------------------------------------------------------
  */
 export const SMS_ENABLED: boolean = false;
-export const NOTIFICATION_LISTENER_ENABLED: boolean = false;
+// v2 pivot: notification parsing is now the PRIMARY capture path (Phase 0 spike
+// active). Android-only; delivery is via the headless task in lib/notification-task.ts.
+export const NOTIFICATION_LISTENER_ENABLED: boolean = true;
 export const STORE_ENABLED: boolean = false;
 export const ADS_ENABLED: boolean = false;

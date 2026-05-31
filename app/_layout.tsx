@@ -159,6 +159,14 @@ function AuthGate() {
         }}
       />
       <Stack.Screen
+        name="notif-debug"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
         name="subscription"
         options={{
           headerShown: false,

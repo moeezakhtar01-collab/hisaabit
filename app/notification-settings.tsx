@@ -249,6 +249,19 @@ export default function NotificationSettingsScreen() {
           </View>
         </Animated.View>
 
+        {/* Phase 0 spike: jump to the raw capture debug view. Remove for prod. */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/notif-debug' as any);
+          }}
+          style={({ pressed }) => [styles.debugBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Ionicons name="bug-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.debugBtnText}>View captured notifications (debug)</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </Pressable>
+
         {/* How it works */}
         <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.howItWorks}>
           <Text style={styles.sectionTitle}>How it works</Text>
@@ -548,5 +561,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
     color: colors.text,
+  },
+  debugBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.surface,
+  },
+  debugBtnText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: colors.textSecondary,
   },
 });
