@@ -1,0 +1,26 @@
+diff --git a/node_modules/react-native-android-notification-listener/android/build.gradle b/node_modules/react-native-android-notification-listener/android/build.gradle
+index 1274a12..ef7f7c1 100644
+--- a/node_modules/react-native-android-notification-listener/android/build.gradle
++++ b/node_modules/react-native-android-notification-listener/android/build.gradle
+@@ -24,6 +24,10 @@ def getExtOrIntegerDefault(name) {
+ }
+ 
+ android {
++  // AGP 8 (Expo SDK 54) requires every library module to declare a namespace;
++  // this package predates that and only set `package` in its manifest. Mirror
++  // that package name here and drop it from the manifest (patched too).
++  namespace "com.lesimoes.androidnotificationlistener"
+ 
+   compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
+ 
+diff --git a/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml b/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
+index 3cb5acc..8a52cb7 100644
+--- a/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
++++ b/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
+@@ -1,5 +1,4 @@
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-          package="com.lesimoes.androidnotificationlistener">
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
+     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
