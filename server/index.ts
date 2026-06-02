@@ -62,7 +62,11 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      // Must include every custom header the client sends, or the CORS
+      // preflight fails and cross-origin web requests are blocked. The app
+      // sends `ngrok-skip-browser-warning` on every request (harmless on
+      // prod/localhost; bypasses ngrok's interstitial in tunneled dev).
+      res.header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 

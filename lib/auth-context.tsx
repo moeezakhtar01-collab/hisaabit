@@ -1,9 +1,19 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { getApiUrl } from '@/lib/query-client';
 import { getOrCreateDeviceId } from '@/lib/device-id';
 import { V2_PASSIVE_MODE } from '@/lib/feature-flags';
-import { fetch } from 'expo/fetch';
+import { fetch as expoFetch } from 'expo/fetch';
+
+// expo/fetch is built for native (streaming, native cookie store) and does NOT
+// behave on web — there the call silently never resolves. Use the browser's
+// native fetch on web. Mirrors the split already used in app/voice-expense.tsx.
+// Keeping the name `fetch` means every call site below is unchanged.
+const fetch: typeof globalThis.fetch =
+  Platform.OS === 'web'
+    ? globalThis.fetch.bind(globalThis)
+    : (expoFetch as unknown as typeof globalThis.fetch);
 
 // Persist the user object across app launches. Without this, the
 // splash screen blocks the entire UI behind a network round-trip to
