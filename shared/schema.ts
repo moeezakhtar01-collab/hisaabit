@@ -10,6 +10,11 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
+  // Frictionless anonymous accounts (v2): the device is the identity. The
+  // anonymous-auth endpoint synthesizes a unique placeholder email/password
+  // per device, so email/password/name stay NOT NULL and existing auth code is
+  // untouched. deviceId is the stable key we upsert + resume sessions by.
+  deviceId: text("device_id").unique(),
   emailConfirmed: boolean("email_confirmed").default(false).notNull(),
   confirmationToken: text("confirmation_token"),
   resetToken: text("reset_token"),
@@ -34,12 +39,22 @@ export const expenses = pgTable("expenses", {
   category: text("category").notNull(),
   note: text("note").default(""),
   date: text("date").notNull(),
+  // Provenance. v2's only active source is 'notification' (passive capture);
+  // 'manual'/'voice' remain for the now-hidden entry paths.
+  source: text("source").default("manual").notNull(),
+  // Per-transaction fingerprint computed on-device for notification captures
+  // (sender + amount + day + normalized text). Null for manual/voice. The
+  // unique index below makes re-reading the same notification a no-op.
+  sourceHash: text("source_hash"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   // History queries always filter on userId and order by date desc.
   // Without this, every list-load is a table scan once a power user
   // crosses ~5k expenses. Cheap insurance to add now.
   index("expenses_user_date_idx").on(table.userId, table.date),
+  // DB-level dedupe for captured expenses. Postgres treats NULLs as distinct,
+  // so manual/voice rows (null hash) never collide — only real captures dedupe.
+  uniqueIndex("expenses_user_source_hash_idx").on(table.userId, table.sourceHash),
 ]);
 
 export const budgets = pgTable("budgets", {
