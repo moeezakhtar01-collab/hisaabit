@@ -14,7 +14,7 @@ index 1274a12..ef7f7c1 100644
    compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
  
 diff --git a/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml b/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
-index 3cb5acc..8a52cb7 100644
+index 3cb5acc..134a919 100644
 --- a/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
 +++ b/node_modules/react-native-android-notification-listener/android/src/main/AndroidManifest.xml
 @@ -1,5 +1,4 @@
@@ -24,3 +24,13 @@ index 3cb5acc..8a52cb7 100644
  
      <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
      <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+@@ -7,8 +6,7 @@
+     <uses-permission android:name="android.permission.WAKE_LOCK" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+ 
+-    <application
+-        android:allowBackup="false">
++    <application>
+         <service
+             android:name=".RNAndroidNotificationListener"
+             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
