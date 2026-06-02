@@ -1,10 +1,46 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { db } from "./db";
 import { users, expenses, budgets, monthlyBudgets, budgetSettings, processedSms, pendingExpenses, type User, type InsertUser, type Expense, type Budget, type MonthlyBudget, type BudgetSettings, type ProcessedSms, type PendingExpense } from "@shared/schema";
 
 export async function createUser(data: InsertUser & { confirmationToken?: string }): Promise<User> {
   const [user] = await db.insert(users).values(data).returning();
   return user;
+}
+
+/**
+ * Frictionless anonymous account: look up by deviceId, or create one.
+ *
+ * email/password stay NOT NULL (so existing auth code is untouched), so we
+ * synthesize unique placeholders: the email is derived from the deviceId, and
+ * the password is random bytes that are NOT a bcrypt hash — so bcrypt.compare
+ * always returns false and nobody can ever password-login to an anonymous
+ * account. emailConfirmed=true so the account is usable immediately. If the
+ * user later "upgrades", we just set a real email + bcrypt password on this row.
+ *
+ * onConflictDoNothing(deviceId) + re-select makes concurrent first-launch
+ * requests for the same device converge on one account.
+ */
+export async function getOrCreateAnonymousUser(deviceId: string): Promise<User> {
+  const [existing] = await db.select().from(users).where(eq(users.deviceId, deviceId)).limit(1);
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(users)
+    .values({
+      deviceId,
+      email: `anon+${deviceId}@hisaabit.app`,
+      password: randomBytes(32).toString("hex"),
+      name: "You",
+      emailConfirmed: true,
+    })
+    .onConflictDoNothing({ target: users.deviceId })
+    .returning();
+  if (created) return created;
+
+  // Lost the insert race — another request created it first. Fetch it.
+  const [after] = await db.select().from(users).where(eq(users.deviceId, deviceId)).limit(1);
+  return after;
 }
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {

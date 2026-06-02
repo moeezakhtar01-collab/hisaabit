@@ -10,6 +10,7 @@ import connectPgSimple from "connect-pg-simple";
 import { Resend } from "resend";
 import {
   createUser,
+  getOrCreateAnonymousUser,
   getUserByEmail,
   getUserById,
   setResetToken,
@@ -406,6 +407,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (err) {
       console.error("Login error:", err);
+      return res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
+
+  // Frictionless anonymous sign-in (v2). The client generates a stable
+  // deviceId on first launch and calls this — no email/password. It resumes the
+  // same account on every launch, so the only setup the user ever sees is
+  // granting notification access.
+  app.post("/api/auth/anonymous", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { deviceId } = req.body;
+      if (!deviceId || typeof deviceId !== "string" || deviceId.length < 8 || deviceId.length > 200) {
+        return res.status(400).json({ error: "A valid deviceId is required" });
+      }
+
+      const user = await getOrCreateAnonymousUser(deviceId.trim());
+      if (!user) {
+        return res.status(500).json({ error: "Could not create session" });
+      }
+
+      const userPayload = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        subscriptionPlan: user.subscriptionPlan || "free",
+        voiceUsageCount: user.voiceUsageCount || 0,
+        adsRemoved: user.adsRemoved || false,
+        voiceCreditsPurchased: user.voiceCreditsPurchased || 0,
+        hasSeenDemo: user.hasSeenDemo || false,
+        anonymous: true,
+      };
+
+      // Same session-fixation defense as password login.
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error("Session regenerate error:", regenErr);
+          return res.status(500).json({ error: "Could not start session" });
+        }
+        req.session.userId = user.id;
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.status(500).json({ error: "Could not start session" });
+          }
+          return res.json({ user: userPayload });
+        });
+      });
+    } catch (err) {
+      console.error("Anonymous auth error:", err);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });
