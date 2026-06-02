@@ -103,6 +103,32 @@ export async function addExpense(userId: string, data: { amount: number; categor
   return expense;
 }
 
+/**
+ * Insert an auto-captured (notification-parsed) expense, deduped at the DB level.
+ * sourceHash is a per-transaction fingerprint computed on-device; the unique
+ * (user_id, source_hash) index makes a re-read a no-op. Returns the new row, or
+ * null when it was a duplicate (already captured).
+ */
+export async function addCapturedExpense(
+  userId: string,
+  data: { amount: number; category: string; note: string; date: string; sourceHash: string },
+): Promise<Expense | null> {
+  const [created] = await db
+    .insert(expenses)
+    .values({
+      userId,
+      amount: data.amount,
+      category: data.category,
+      note: data.note,
+      date: data.date,
+      source: "notification",
+      sourceHash: data.sourceHash,
+    })
+    .onConflictDoNothing({ target: [expenses.userId, expenses.sourceHash] })
+    .returning();
+  return created || null;
+}
+
 export async function updateExpenseById(userId: string, expenseId: string, data: { amount: number; category: string; note: string; date: string }): Promise<Expense | null> {
   const [updated] = await db
     .update(expenses)

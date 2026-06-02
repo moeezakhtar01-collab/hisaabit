@@ -11,6 +11,7 @@ import { Resend } from "resend";
 import {
   createUser,
   getOrCreateAnonymousUser,
+  addCapturedExpense,
   getUserByEmail,
   getUserById,
   setResetToken,
@@ -153,6 +154,8 @@ function rateLimit(windowMs: number, maxRequests: number) {
 const authLimiter = rateLimit(15 * 60 * 1000, 15);
 const voiceLimiter = rateLimit(60 * 60 * 1000, 30);
 const smsLimiter = rateLimit(60 * 60 * 1000, 20);
+// Notification captures can arrive in bursts; generous per-IP ceiling to cap abuse.
+const captureLimiter = rateLimit(60 * 60 * 1000, 300);
 
 const VALID_CATEGORY_KEYS = [
   "kiryana", "bijliBill", "gasBill", "paniBill",
@@ -234,6 +237,55 @@ const CATEGORIES = [
   { key: "rent", label: "Rent", aliases: ["rent", "kiraya", "house rent", "ghar ka kiraya"] },
   { key: "general", label: "General", aliases: ["general", "other", "misc"] },
 ];
+
+// Single-notification AI extraction (the AI half of the hybrid capture
+// pipeline). Used when on-device regex can't confidently parse a financial
+// notification. Returns one debit expense, or null for credits / non-txns.
+async function aiExtractFromNotification(
+  raw: { sender?: string; title?: string; text?: string },
+  todayStr: string,
+): Promise<{ amount: number; category: string; note: string; date: string } | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  const content = `${raw.title || ""}\n${raw.text || ""}`.trim();
+  if (!content) return null;
+
+  const openai = new OpenAI({ apiKey });
+  const categoryList = CATEGORIES.map((c) => `"${c.key}" (${c.label})`).join(", ");
+
+  const extraction = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    messages: [
+      {
+        role: "system",
+        content: `You extract a single expense from a Pakistani bank/wallet transaction notification. Today is ${todayStr}.
+Respond with ONLY a JSON object: {"amount": number, "category": "key", "note": "short description", "type": "debit" | "credit" | "none"}.
+- amount: PKR integer. Parse "Rs.2,500", "PKR 1500", "Rs 500.00", "2,500.00".
+- category: one of ${categoryList}. Infer from merchant/context; if unclear use "general".
+- note: brief English description; include the merchant/counterparty if present.
+- type: "debit" when money LEAVES the account (purchase, payment, sent, withdrawal, bill, transfer out); "credit" for incoming money; "none" if this is not a financial transaction or the amount can't be determined.`,
+      },
+      { role: "user", content },
+    ],
+  });
+
+  const out = extraction.choices[0]?.message?.content || "";
+  let obj: any;
+  try {
+    const m = out.match(/\{[\s\S]*\}/);
+    obj = m ? JSON.parse(m[0]) : null;
+  } catch {
+    obj = null;
+  }
+  if (!obj || obj.type !== "debit") return null;
+
+  const amount = Math.round(Number(obj.amount));
+  if (!(amount > 0 && amount <= 100_000_000)) return null;
+  const category = VALID_CATEGORY_KEYS.includes(obj.category) ? obj.category : "general";
+  const note = typeof obj.note === "string" ? obj.note.slice(0, 100) : "";
+  return { amount, category, note, date: todayStr };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const PgSession = connectPgSimple(session);
@@ -1553,6 +1605,58 @@ Important:
     } catch (err) {
       console.error("Update SMS settings error:", err);
       return res.status(500).json({ error: "Failed to update SMS settings" });
+    }
+  });
+
+  // ─── Notification Capture (v2 passive pipeline) ─────────────────
+  // Ingest endpoint for auto-captured expenses. Authenticated by deviceId (NOT
+  // a session cookie) so the Android headless task posts reliably in the
+  // background. Accepts EITHER an on-device-parsed expense (`parsed`) or raw
+  // notification text (`raw`) for server AI extraction. Deduped by `hash`.
+  app.post("/api/capture", captureLimiter, async (req: Request, res: Response) => {
+    try {
+      const { deviceId, parsed, raw, hash, localDate } = req.body ?? {};
+      if (!deviceId || typeof deviceId !== "string" || deviceId.length < 8) {
+        return res.status(400).json({ error: "A valid deviceId is required" });
+      }
+      if (!hash || typeof hash !== "string") {
+        return res.status(400).json({ error: "A dedupe hash is required" });
+      }
+
+      const user = await getOrCreateAnonymousUser(deviceId.trim());
+      if (!user) return res.status(500).json({ error: "Could not resolve account" });
+
+      const todayStr =
+        typeof localDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(localDate)
+          ? localDate
+          : new Date().toISOString().split("T")[0];
+
+      let expenseData: { amount: number; category: string; note: string; date: string } | null = null;
+
+      if (parsed && typeof parsed.amount === "number") {
+        // On-device regex path — trust but validate.
+        const amount = Math.round(parsed.amount);
+        if (!(amount > 0 && amount <= 100_000_000)) {
+          return res.json({ saved: false, reason: "invalid amount" });
+        }
+        const category = VALID_CATEGORY_KEYS.includes(parsed.category) ? parsed.category : "general";
+        const date =
+          typeof parsed.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : todayStr;
+        const note = typeof parsed.note === "string" ? parsed.note.slice(0, 100) : "";
+        expenseData = { amount, category, note, date };
+      } else if (raw && (typeof raw.text === "string" || typeof raw.title === "string")) {
+        // AI fallback path.
+        expenseData = await aiExtractFromNotification(raw, todayStr);
+        if (!expenseData) return res.json({ saved: false, reason: "not a debit / unparseable" });
+      } else {
+        return res.status(400).json({ error: "Provide `parsed` or `raw`" });
+      }
+
+      const expense = await addCapturedExpense(user.id, { ...expenseData, sourceHash: hash });
+      return res.json({ saved: !!expense, duplicate: !expense, expense: expense || undefined });
+    } catch (err) {
+      console.error("Capture error:", err);
+      return res.status(500).json({ error: "Failed to capture expense" });
     }
   });
 

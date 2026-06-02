@@ -29,6 +29,7 @@ import {
   getCategoryIcon,
 } from '@/lib/storage';
 import { hasNotificationAccess } from '@/lib/notification-listener';
+import { flushCaptureQueue } from '@/lib/notification-task';
 
 /**
  * v2 home — the silent tracker's single screen. Leads with "spent this week"
@@ -50,6 +51,7 @@ export default function DashboardScreen() {
 
   const load = useCallback(async () => {
     try {
+      flushCaptureQueue().catch(() => {}); // retry any captures queued while offline
       const [all, access] = await Promise.all([getExpenses(), hasNotificationAccess()]);
       setExpenses(all);
       setHasAccess(access);
