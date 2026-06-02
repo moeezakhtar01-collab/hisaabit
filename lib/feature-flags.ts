@@ -122,3 +122,13 @@ export const SMS_ENABLED: boolean = false;
 export const NOTIFICATION_LISTENER_ENABLED: boolean = true;
 export const STORE_ENABLED: boolean = false;
 export const ADS_ENABLED: boolean = false;
+
+/**
+ * V2_PASSIVE_MODE — the silent expense-tracker rebuild. When true:
+ *   - the app boots into a frictionless anonymous session (no login screen)
+ *   - the only setup step is granting notification access (onboarding)
+ *   - UI is the minimal shell (dashboard + weekly summary); manual add, voice,
+ *     budgets, history-as-editor, and the tab bar are hidden (code kept).
+ * The old auth + tab UI stays in the codebase, reachable only if this is false.
+ */
+export const V2_PASSIVE_MODE: boolean = true;

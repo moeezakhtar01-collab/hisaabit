@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '@/lib/query-client';
+import { getOrCreateDeviceId } from '@/lib/device-id';
+import { V2_PASSIVE_MODE } from '@/lib/feature-flags';
 import { fetch } from 'expo/fetch';
 
 // Persist the user object across app launches. Without this, the
@@ -112,6 +114,7 @@ interface AuthContextValue {
   deleteAccount: (password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   markDemoSeen: () => Promise<void>;
+  anonymousSignIn: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -133,10 +136,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cached = await loadCachedUser();
     if (cached) {
       setUser(cached);
+      setIsLoading(false);
+      validateSession();
+      return;
+    }
+    // No cached user. In v2 there is no login screen — silently establish a
+    // device-tied anonymous session BEFORE finishing load, so the gate routes
+    // straight into the app instead of flashing an auth screen.
+    if (V2_PASSIVE_MODE) {
+      await ensureAnonymousSession();
+      setIsLoading(false);
+      return;
     }
     setIsLoading(false);
-    // Background validate — does not block render.
     validateSession();
+  };
+
+  // v2: obtain or resume the device-tied anonymous session. The device id is
+  // the identity; no email/password involved.
+  const ensureAnonymousSession = async () => {
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      const baseUrl = getApiUrl();
+      const res = await authFetch(new URL('/api/auth/anonymous', baseUrl).toString(), {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      });
+      const data = await readJsonOrThrow(res, 'Could not start session');
+      setUser(data.user);
+      await persistUser(data.user);
+    } catch {
+      // Offline / server down: leave user null. The gate shows a connecting
+      // state; bootstrap/validate retry on next launch or focus.
+    }
   };
 
   const validateSession = async () => {
@@ -151,8 +183,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         await persistUser(data.user);
       } else if (res.status === 401) {
-        setUser(null);
-        await persistUser(null);
+        // In v2, an expired session silently re-establishes anonymously rather
+        // than bouncing to a (non-existent) login screen.
+        if (V2_PASSIVE_MODE) {
+          await ensureAnonymousSession();
+        } else {
+          setUser(null);
+          await persistUser(null);
+        }
       }
       // Other status codes (5xx, 502 from a Railway redeploy, etc.)
       // we treat as transient — keep the cached user.
@@ -296,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     deleteAccount,
     refreshUser,
     markDemoSeen,
+    anonymousSignIn: ensureAnonymousSession,
   }), [user, isLoading]);
 
   return (

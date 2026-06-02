@@ -18,7 +18,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider, useColors } from "@/lib/theme-context";
 import { initSmsListener, teardownSmsListener } from "@/lib/sms-processor";
 import { initNotificationListener, teardownNotificationListener } from "@/lib/notification-listener";
-import { SMS_ENABLED, NOTIFICATION_LISTENER_ENABLED } from "@/lib/feature-flags";
+import { SMS_ENABLED, NOTIFICATION_LISTENER_ENABLED, V2_PASSIVE_MODE } from "@/lib/feature-flags";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,6 +30,20 @@ function AuthGate() {
 
   useEffect(() => {
     if (isLoading) return;
+
+    if (V2_PASSIVE_MODE) {
+      // No login screen. While the anonymous session is still being established
+      // (user null), stay put — bootstrap handles it.
+      if (!user) return;
+      const seg0 = segments[0];
+      // Redirect the old entry points (root "/", legacy auth, tabs, demo) into
+      // the v2 shell. Modals (weekly-report, settings, …) pass through untouched.
+      const onLegacyEntry =
+        !seg0 || seg0 === "login" || seg0 === "register" ||
+        seg0 === "forgot-password" || seg0 === "(tabs)" || seg0 === "quick-demo";
+      if (onLegacyEntry) router.replace("/dashboard" as any);
+      return;
+    }
 
     const inAuth = segments[0] === "login" || segments[0] === "register" || segments[0] === "forgot-password";
     const onDemo = segments[0] === "quick-demo";
@@ -64,7 +78,11 @@ function AuthGate() {
     return () => teardownNotificationListener();
   }, [user]);
 
-  if (isLoading) {
+  // v2: quiet spinner while connecting (no anon session yet) or while about to
+  // redirect a legacy entry route into the shell — avoids flashing the old tab
+  // UI on cold start.
+  const v2Connecting = V2_PASSIVE_MODE && (!user || (segments.length as number) === 0);
+  if (isLoading || v2Connecting) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -78,6 +96,8 @@ function AuthGate() {
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen
         name="add-expense"
         options={{
