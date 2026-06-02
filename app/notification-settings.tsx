@@ -262,35 +262,6 @@ export default function NotificationSettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
 
-        {/* How it works */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.howItWorks}>
-          <Text style={styles.sectionTitle}>How it works</Text>
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>1</Text>
-            </View>
-            <Text style={styles.stepText}>Your bank or wallet app sends a transaction notification</Text>
-          </View>
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>2</Text>
-            </View>
-            <Text style={styles.stepText}>Hisaabit reads it silently and extracts the amount + category</Text>
-          </View>
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>3</Text>
-            </View>
-            <Text style={styles.stepText}>A pending expense appears in your inbox</Text>
-          </View>
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, { backgroundColor: colors.success }]}>
-              <Text style={styles.stepNumber}>4</Text>
-            </View>
-            <Text style={styles.stepText}>You review and confirm it — done!</Text>
-          </View>
-        </Animated.View>
-
         {/* Privacy notice */}
         <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.privacyCard}>
           <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
@@ -302,21 +273,6 @@ export default function NotificationSettingsScreen() {
           </Text>
         </Animated.View>
 
-        {/* Supported apps */}
-        <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.banksSection}>
-          <Text style={styles.sectionTitle}>Supported Apps</Text>
-          <View style={styles.banksList}>
-            {[
-              'HBL Mobile', 'UBL Digital', 'Meezan Mobile', 'Alfa',
-              'MCB Live', 'Allied Mobile', 'Faysal Digibank',
-              'JazzCash', 'Easypaisa', 'NayaPay', 'SadaPay', 'Keenu',
-            ].map(app => (
-              <View key={app} style={styles.bankChip}>
-                <Text style={styles.bankChipText}>{app}</Text>
-              </View>
-            ))}
-          </View>
-        </Animated.View>
       </ScrollView>
     </View>
   );
