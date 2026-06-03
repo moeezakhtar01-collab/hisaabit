@@ -19,6 +19,8 @@ import { ThemeProvider, useColors } from "@/lib/theme-context";
 import { initSmsListener, teardownSmsListener } from "@/lib/sms-processor";
 import { initNotificationListener, teardownNotificationListener } from "@/lib/notification-listener";
 import { SMS_ENABLED, NOTIFICATION_LISTENER_ENABLED, V2_PASSIVE_MODE } from "@/lib/feature-flags";
+import * as Notifications from "expo-notifications";
+import { ensureReportNotifications } from "@/lib/report-notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -77,6 +79,22 @@ function AuthGate() {
 
     return () => teardownNotificationListener();
   }, [user]);
+
+  // v2: (re)schedule the weekly + monthly report notifications once signed in.
+  useEffect(() => {
+    if (!V2_PASSIVE_MODE || !user) return;
+    ensureReportNotifications();
+  }, [user]);
+
+  // Deep-link a tapped report notification to the weekly report.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const target = (response.notification.request.content.data as any)?.target;
+      if (typeof target === "string") router.push(target as any);
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // v2: quiet spinner while connecting (no anon session yet) or while about to
   // redirect a legacy entry route into the shell — avoids flashing the old tab
