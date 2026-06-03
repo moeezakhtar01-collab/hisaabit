@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '@/lib/query-client';
 import { getOrCreateDeviceId } from '@/lib/device-id';
-import { looksFinancial, parseOnDevice, dedupeHash, type NotificationInput } from '@/lib/notification-parser';
+import { looksFinancial, dedupeHash, type NotificationInput } from '@/lib/notification-parser';
 
 /**
  * Headless task handler for incoming notifications (Android only).
@@ -94,11 +94,15 @@ async function processCapture(entry: CapturedNotification): Promise<void> {
   const hash = await dedupeHash(input, dayKey);
   if (await isProcessed(hash)) return;
 
-  const parsed = parseOnDevice(input, dayKey);
+  // Always send raw text so the server AI extracts the amount AND assigns a
+  // learned/created category (pure-AI categories — no fixed enum on device).
   const deviceId = await getOrCreateDeviceId();
-  const body: CaptureBody = parsed
-    ? { deviceId, hash, localDate: dayKey, parsed }
-    : { deviceId, hash, localDate: dayKey, raw: { sender: input.app, title: input.title, text: input.text } };
+  const body: CaptureBody = {
+    deviceId,
+    hash,
+    localDate: dayKey,
+    raw: { sender: input.app, title: input.title, text: input.text },
+  };
 
   const ok = await postCapture(body);
   if (ok) {

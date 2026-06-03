@@ -129,6 +129,19 @@ export async function addCapturedExpense(
   return created || null;
 }
 
+/**
+ * The user's evolving, AI-grown category set — just the distinct category
+ * strings they already have. Passed to the capture AI so it reuses an existing
+ * category when one fits instead of fragmenting into near-duplicates.
+ */
+export async function getUserCategories(userId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ category: expenses.category })
+    .from(expenses)
+    .where(eq(expenses.userId, userId));
+  return rows.map((r) => r.category).filter((c): c is string => !!c);
+}
+
 export async function updateExpenseById(userId: string, expenseId: string, data: { amount: number; category: string; note: string; date: string }): Promise<Expense | null> {
   const [updated] = await db
     .update(expenses)

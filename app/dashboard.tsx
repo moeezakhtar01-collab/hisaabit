@@ -25,7 +25,7 @@ import {
   getWeekDateRange,
   formatPKR,
   formatDate,
-  getCategoryLabel,
+  categoryDisplayLabel,
   getCategoryIcon,
 } from '@/lib/storage';
 import { hasNotificationAccess } from '@/lib/notification-listener';
@@ -180,12 +180,12 @@ export default function DashboardScreen() {
             <View style={styles.feedCard}>
               {recent.map((e, i) => (
                 <View key={e.id} style={[styles.row, i > 0 && styles.rowBorder]}>
-                  <View style={[styles.rowIcon, { backgroundColor: ((colors.categories as any)[e.category] || colors.primary) + '1A' }]}>
-                    <Ionicons name={getCategoryIcon(e.category) as any} size={18} color={(colors.categories as any)[e.category] || colors.primary} />
+                  <View style={[styles.rowIcon, { backgroundColor: catColor(e.category, colors) + '1A' }]}>
+                    <Ionicons name={getCategoryIcon(e.category) as any} size={18} color={catColor(e.category, colors)} />
                   </View>
                   <View style={styles.rowText}>
-                    <Text style={styles.rowNote} numberOfLines={1}>{e.note?.trim() || getCategoryLabel(e.category)}</Text>
-                    <Text style={styles.rowMeta}>{getCategoryLabel(e.category)} · {formatDate(e.date)}</Text>
+                    <Text style={styles.rowNote} numberOfLines={1}>{e.note?.trim() || categoryDisplayLabel(e.category)}</Text>
+                    <Text style={styles.rowMeta}>{categoryDisplayLabel(e.category)} · {formatDate(e.date)}</Text>
                   </View>
                   <Text style={styles.rowAmount}>{formatPKR(e.amount)}</Text>
                 </View>
@@ -196,6 +196,16 @@ export default function DashboardScreen() {
       </ScrollView>
     </View>
   );
+}
+
+// Dynamic-ready category color: known fixed key → its palette color;
+// AI-created category → a stable color derived from the name.
+function catColor(key: string, colors: ThemeColors): string {
+  const known = (colors.categories as any)[key];
+  if (known) return known;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 52%, 52%)`;
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({

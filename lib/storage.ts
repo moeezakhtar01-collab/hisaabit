@@ -148,6 +148,14 @@ export function getCategoryLabel(key: string): string {
   return cat ? cat.label : 'General';
 }
 
+// Display label for any category — a known fixed key maps to its label; an
+// AI-created free-form category (e.g. "Groceries") is already a label, so use
+// it as-is. Keeps the UI correct under the dynamic (pure-AI) category system.
+export function categoryDisplayLabel(cat: string): string {
+  const found = CATEGORIES.find(c => c.key === cat);
+  return found ? found.label : (cat?.trim() || 'Other');
+}
+
 export function getCategoryIcon(key: string): string {
   const cat = CATEGORIES.find(c => c.key === key);
   return cat ? cat.icon : 'ellipsis-horizontal-circle';
