@@ -1,4 +1,4 @@
-import { Expense, getCategoryLabel, getCategoryIcon } from './storage';
+import { Expense, getCategoryLabel, getCategoryIcon, CATEGORIES } from './storage';
 
 // --- Types ---
 
@@ -258,4 +258,99 @@ function detectPersonality(d: {
   if (d.count <= 5 && d.catCount <= 2) return PERSONALITIES.minimalist;
   if (d.catCount >= 5 && d.count >= 15) return PERSONALITIES.splurger;
   return PERSONALITIES.steady;
+}
+
+// ─── v2 redesigned weekly summary ───────────────────────────────
+// Informative, dynamic-category-ready data for the new (non-story) report.
+
+export interface CategorySlice { key: string; label: string; amount: number; pct: number; }
+export interface DayBar { key: string; label: string; amount: number; isToday: boolean; }
+export interface WeeklySummary {
+  weekLabel: string;
+  total: number;
+  lastWeekTotal: number;
+  deltaPct: number;        // signed % vs last week (0 when no prior data)
+  hasLastWeek: boolean;
+  days: DayBar[];          // Mon..Sun
+  categories: CategorySlice[]; // sorted desc
+  biggest: { amount: number; note: string; category: string } | null;
+  txCount: number;
+  activeDays: number;
+  noSpendDays: number;     // among days elapsed so far this week
+  avgPerActiveDay: number;
+  busiest: DayBar | null;
+}
+
+// Resolve a display label for any category key — known fixed key or a
+// dynamic/AI-created one (which we just title-case). Keeps the report correct
+// once categories become free-form.
+function labelFor(key: string): string {
+  const found = CATEGORIES.find((c) => c.key === key);
+  if (found) return found.label;
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : 'Other';
+}
+
+const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function dayKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function computeWeeklySummary(allExpenses: Expense[]): WeeklySummary {
+  const cur = getWeekRange(0);
+  const prev = getWeekRange(-1);
+  const curExp = inRange(allExpenses, cur.start, cur.end);
+  const prevExp = inRange(allExpenses, prev.start, prev.end);
+
+  const total = curExp.reduce((s, e) => s + e.amount, 0);
+  const lastWeekTotal = prevExp.reduce((s, e) => s + e.amount, 0);
+  const hasLastWeek = lastWeekTotal > 0;
+  const deltaPct = hasLastWeek ? Math.round(((total - lastWeekTotal) / lastWeekTotal) * 100) : 0;
+
+  const todayKey = dayKeyOf(new Date());
+  const byDay = new Map<string, number>();
+  curExp.forEach((e) => {
+    const k = dayKeyOf(parseDate(e.date));
+    byDay.set(k, (byDay.get(k) || 0) + e.amount);
+  });
+  const days: DayBar[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(cur.start);
+    d.setDate(cur.start.getDate() + i);
+    const k = dayKeyOf(d);
+    days.push({ key: k, label: DOW_LABELS[i], amount: byDay.get(k) || 0, isToday: k === todayKey });
+  }
+
+  const catMap = new Map<string, number>();
+  curExp.forEach((e) => catMap.set(e.category, (catMap.get(e.category) || 0) + e.amount));
+  const categories: CategorySlice[] = Array.from(catMap.entries())
+    .map(([key, amount]) => ({ key, label: labelFor(key), amount, pct: total > 0 ? Math.round((amount / total) * 100) : 0 }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const biggestExp = curExp.length ? curExp.reduce((m, e) => (e.amount > m.amount ? e : m), curExp[0]) : null;
+
+  const activeDays = new Set(curExp.map((e) => dayKeyOf(parseDate(e.date)))).size;
+  const elapsed = Math.min(7, Math.max(1, Math.floor((Date.now() - cur.start.getTime()) / 86_400_000) + 1));
+  const noSpendDays = Math.max(0, elapsed - activeDays);
+  const avgPerActiveDay = activeDays > 0 ? Math.round(total / activeDays) : 0;
+
+  const busiest = days.reduce<DayBar | null>((m, d) => (!m || d.amount > m.amount ? d : m), null);
+
+  return {
+    weekLabel: cur.label,
+    total,
+    lastWeekTotal,
+    deltaPct,
+    hasLastWeek,
+    days,
+    categories,
+    biggest: biggestExp
+      ? { amount: biggestExp.amount, note: biggestExp.note?.trim() || labelFor(biggestExp.category), category: biggestExp.category }
+      : null,
+    txCount: curExp.length,
+    activeDays,
+    noSpendDays,
+    avgPerActiveDay,
+    busiest: busiest && busiest.amount > 0 ? busiest : null,
+  };
 }
