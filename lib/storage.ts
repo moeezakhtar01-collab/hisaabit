@@ -7,6 +7,8 @@ export interface Expense {
   note: string;
   date: string;
   createdAt: string;
+  /** Detected bank/wallet/platform for notification-captured expenses. */
+  sourceLabel?: string | null;
 }
 
 export interface Budget {

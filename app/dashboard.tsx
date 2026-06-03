@@ -82,6 +82,8 @@ export default function DashboardScreen() {
   const weekExpenses = getExpensesForWeek(expenses);
   const weekTotal = getTotalExpenses(weekExpenses);
   const recent = weekExpenses.slice(0, 8);
+  // What the app has learned: distinct bank/wallet platforms seen in captures.
+  const sources = Array.from(new Set(expenses.map((e) => e.sourceLabel).filter(Boolean))) as string[];
 
   const trackingOn = isAndroid ? hasAccess : true;
 
@@ -121,6 +123,13 @@ export default function DashboardScreen() {
             {!trackingOn && <Ionicons name="chevron-forward" size={15} color={colors.warning} />}
           </Pressable>
         </Animated.View>
+
+        {sources.length > 0 && (
+          <View style={styles.sourcesRow}>
+            <Ionicons name="git-network-outline" size={13} color={colors.textSecondary} />
+            <Text style={styles.sourcesText} numberOfLines={2}>Caught from {sources.join('  ·  ')}</Text>
+          </View>
+        )}
 
         {/* Hero: spent this week */}
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.hero}>
@@ -223,6 +232,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold' },
+  sourcesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, marginTop: -4 },
+  sourcesText: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.textSecondary },
   hero: {
     backgroundColor: colors.card, borderRadius: 20, padding: 24,
     borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6,

@@ -111,7 +111,7 @@ export async function addExpense(userId: string, data: { amount: number; categor
  */
 export async function addCapturedExpense(
   userId: string,
-  data: { amount: number; category: string; note: string; date: string; sourceHash: string },
+  data: { amount: number; category: string; note: string; date: string; sourceHash: string; sourceLabel?: string | null },
 ): Promise<Expense | null> {
   const [created] = await db
     .insert(expenses)
@@ -123,6 +123,7 @@ export async function addCapturedExpense(
       date: data.date,
       source: "notification",
       sourceHash: data.sourceHash,
+      sourceLabel: data.sourceLabel ?? null,
     })
     .onConflictDoNothing({ target: [expenses.userId, expenses.sourceHash] })
     .returning();

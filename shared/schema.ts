@@ -46,6 +46,10 @@ export const expenses = pgTable("expenses", {
   // (sender + amount + day + normalized text). Null for manual/voice. The
   // unique index below makes re-reading the same notification a no-op.
   sourceHash: text("source_hash"),
+  // Detected bank / wallet / payment platform for a captured expense
+  // (e.g. "HBL", "JazzCash", "SadaPay") — powers the "connected sources" view
+  // so the app learns which platforms the user actually uses. Null for manual/voice.
+  sourceLabel: text("source_label"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   // History queries always filter on userId and order by date desc.

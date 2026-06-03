@@ -250,11 +250,31 @@ function sanitizeCategory(raw: unknown): string {
   return c.length ? c : "Other";
 }
 
+// Fallback platform label from the sender package, used when the AI can't name
+// the bank/wallet from the notification text. Best-guess package names; the AI
+// usually gets the platform from the visible app/bank name anyway.
+const PLATFORM_BY_PACKAGE: Record<string, string> = {
+  "com.techlogix.mobilinkcustomer": "JazzCash",
+  "pk.com.telenor.phoenix": "Easypaisa",
+  "com.sadapay.android": "SadaPay",
+  "com.nayapay.app": "NayaPay",
+  "com.hbl.mobile": "HBL",
+  "com.ubl.android": "UBL",
+  "com.meezanbank.mb": "Meezan",
+  "com.mcb.android": "MCB",
+  "com.alfa.bankalfalah": "Alfa",
+  "com.alliedbank.myabl": "Allied",
+  "com.fbl.digibank": "Faysal",
+};
+function platformFromSender(pkg?: string): string | null {
+  return pkg ? PLATFORM_BY_PACKAGE[pkg] ?? null : null;
+}
+
 async function aiExtractFromNotification(
   raw: { sender?: string; title?: string; text?: string },
   todayStr: string,
   existingCategories: string[],
-): Promise<{ amount: number; category: string; note: string; date: string } | null> {
+): Promise<{ amount: number; category: string; note: string; date: string; platform: string | null } | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   const content = `${raw.title || ""}\n${raw.text || ""}`.trim();
@@ -272,10 +292,11 @@ async function aiExtractFromNotification(
       {
         role: "system",
         content: `You extract a single expense from a Pakistani bank/wallet transaction notification. Today is ${todayStr}.
-Respond with ONLY a JSON object: {"amount": number, "category": "string", "note": "short description", "type": "debit" | "credit" | "none"}.
+Respond with ONLY a JSON object: {"amount": number, "category": "string", "note": "short description", "platform": "string", "type": "debit" | "credit" | "none"}.
 - amount: PKR integer. Parse "Rs.2,500", "PKR 1500", "Rs 500.00", "2,500.00".
 - category: the spending category. The user's existing categories are: ${existing}. If one of them clearly fits, return it EXACTLY (same spelling and casing). Otherwise create a concise new category — 1-2 words, Title Case, generic (e.g. "Groceries", "Fuel", "Dining", "Utilities", "Mobile Load", "Transfers", "Shopping"), NEVER the merchant's name.
 - note: brief English description; include the merchant/counterparty if present.
+- platform: the bank/wallet/app this notification is from (e.g. "HBL", "JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Meezan", "UBL", "Alfa"). Use the name shown in the notification; null if unclear.
 - type: "debit" when money LEAVES the account (purchase, payment, sent, withdrawal, bill, transfer out); "credit" for incoming money; "none" if this is not a financial transaction or the amount can't be determined.`,
       },
       { role: "user", content },
@@ -295,7 +316,8 @@ Respond with ONLY a JSON object: {"amount": number, "category": "string", "note"
   const amount = Math.round(Number(obj.amount));
   if (!(amount > 0 && amount <= 100_000_000)) return null;
   const note = typeof obj.note === "string" ? obj.note.slice(0, 100) : "";
-  return { amount, category: sanitizeCategory(obj.category), note, date: todayStr };
+  const platform = typeof obj.platform === "string" && obj.platform.trim() ? obj.platform.trim().slice(0, 30) : null;
+  return { amount, category: sanitizeCategory(obj.category), note, date: todayStr, platform };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1643,7 +1665,7 @@ Important:
           : new Date().toISOString().split("T")[0];
 
       const existingCategories = await getUserCategories(user.id);
-      let expenseData: { amount: number; category: string; note: string; date: string } | null = null;
+      let expenseData: { amount: number; category: string; note: string; date: string; platform?: string | null } | null = null;
 
       if (parsed && typeof parsed.amount === "number") {
         // On-device path — trust but validate. Category is free-form now.
@@ -1663,7 +1685,18 @@ Important:
         return res.status(400).json({ error: "Provide `parsed` or `raw`" });
       }
 
-      const expense = await addCapturedExpense(user.id, { ...expenseData, sourceHash: hash });
+      const sourceLabel =
+        expenseData.platform ??
+        platformFromSender(typeof raw?.sender === "string" ? raw.sender : undefined) ??
+        null;
+      const expense = await addCapturedExpense(user.id, {
+        amount: expenseData.amount,
+        category: expenseData.category,
+        note: expenseData.note,
+        date: expenseData.date,
+        sourceHash: hash,
+        sourceLabel,
+      });
       return res.json({ saved: !!expense, duplicate: !expense, expense: expense || undefined });
     } catch (err) {
       console.error("Capture error:", err);
