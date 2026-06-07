@@ -267,7 +267,8 @@ export interface CategorySlice { key: string; label: string; amount: number; pct
 export interface DayBar { key: string; label: string; amount: number; isToday: boolean; }
 export interface WeeklySummary {
   weekLabel: string;
-  total: number;
+  total: number;        // money out (spending) this week
+  moneyIn: number;      // money in (received) this week
   lastWeekTotal: number;
   deltaPct: number;        // signed % vs last week (0 when no prior data)
   hasLastWeek: boolean;
@@ -302,14 +303,21 @@ export function computeWeeklySummary(allExpenses: Expense[]): WeeklySummary {
   const curExp = inRange(allExpenses, cur.start, cur.end);
   const prevExp = inRange(allExpenses, prev.start, prev.end);
 
-  const total = curExp.reduce((s, e) => s + e.amount, 0);
-  const lastWeekTotal = prevExp.reduce((s, e) => s + e.amount, 0);
+  // The report is spending-centric ("where it went"), so headline stats use
+  // money OUT; money IN is surfaced separately.
+  const isOut = (e: Expense) => e.direction !== 'in';
+  const curOut = curExp.filter(isOut);
+  const prevOut = prevExp.filter(isOut);
+
+  const total = curOut.reduce((s, e) => s + e.amount, 0);
+  const moneyIn = curExp.filter((e) => e.direction === 'in').reduce((s, e) => s + e.amount, 0);
+  const lastWeekTotal = prevOut.reduce((s, e) => s + e.amount, 0);
   const hasLastWeek = lastWeekTotal > 0;
   const deltaPct = hasLastWeek ? Math.round(((total - lastWeekTotal) / lastWeekTotal) * 100) : 0;
 
   const todayKey = dayKeyOf(new Date());
   const byDay = new Map<string, number>();
-  curExp.forEach((e) => {
+  curOut.forEach((e) => {
     const k = dayKeyOf(parseDate(e.date));
     byDay.set(k, (byDay.get(k) || 0) + e.amount);
   });
@@ -322,14 +330,14 @@ export function computeWeeklySummary(allExpenses: Expense[]): WeeklySummary {
   }
 
   const catMap = new Map<string, number>();
-  curExp.forEach((e) => catMap.set(e.category, (catMap.get(e.category) || 0) + e.amount));
+  curOut.forEach((e) => catMap.set(e.category, (catMap.get(e.category) || 0) + e.amount));
   const categories: CategorySlice[] = Array.from(catMap.entries())
     .map(([key, amount]) => ({ key, label: labelFor(key), amount, pct: total > 0 ? Math.round((amount / total) * 100) : 0 }))
     .sort((a, b) => b.amount - a.amount);
 
-  const biggestExp = curExp.length ? curExp.reduce((m, e) => (e.amount > m.amount ? e : m), curExp[0]) : null;
+  const biggestExp = curOut.length ? curOut.reduce((m, e) => (e.amount > m.amount ? e : m), curOut[0]) : null;
 
-  const activeDays = new Set(curExp.map((e) => dayKeyOf(parseDate(e.date)))).size;
+  const activeDays = new Set(curOut.map((e) => dayKeyOf(parseDate(e.date)))).size;
   const elapsed = Math.min(7, Math.max(1, Math.floor((Date.now() - cur.start.getTime()) / 86_400_000) + 1));
   const noSpendDays = Math.max(0, elapsed - activeDays);
   const avgPerActiveDay = activeDays > 0 ? Math.round(total / activeDays) : 0;
@@ -339,6 +347,7 @@ export function computeWeeklySummary(allExpenses: Expense[]): WeeklySummary {
   return {
     weekLabel: cur.label,
     total,
+    moneyIn,
     lastWeekTotal,
     deltaPct,
     hasLastWeek,

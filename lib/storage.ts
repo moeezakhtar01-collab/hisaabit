@@ -35,7 +35,10 @@ export async function getExpenses(): Promise<Expense[]> {
   // outages look like "all your data is gone."
   const res = await apiRequest('GET', '/api/expenses');
   const data: Expense[] = await res.json();
-  return data.map(e => ({ ...e, category: normalizeCategoryKey(e.category) }));
+  // NOTE: do NOT normalize categories to the fixed-11 set — v2 categories are
+  // free-form / AI-created (e.g. "Groceries", "Salary"). normalizeCategoryKey
+  // would collapse every dynamic category to "general".
+  return data;
 }
 
 export async function addExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {

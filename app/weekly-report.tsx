@@ -83,6 +83,9 @@ export default function WeeklyReportScreen() {
             <Text style={styles.heroLabel}>Total spent this week</Text>
             <Text style={styles.heroAmount} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(summary.total)}</Text>
             <DeltaPill summary={summary} colors={colors} />
+            {summary.moneyIn > 0 && (
+              <Text style={styles.heroIn}>+ {formatPKR(summary.moneyIn)} came in this week</Text>
+            )}
           </View>
 
           {/* Quick stats */}
@@ -271,6 +274,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   heroLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
   heroAmount: { fontSize: 42, fontFamily: 'Inter_700Bold', color: colors.text },
+  heroIn: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.success, marginTop: 6 },
   deltaPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginTop: 2 },
   deltaText: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold' },
   deltaNeutralText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.textSecondary, marginTop: 2 },
