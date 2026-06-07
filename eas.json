@@ -29,7 +29,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "https://REPLACE_WITH_V2_RAILWAY_URL"
+        "EXPO_PUBLIC_DOMAIN": "https://hisaabit-production-c14e.up.railway.app"
       }
     },
     "production": {
