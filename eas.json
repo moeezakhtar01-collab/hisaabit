@@ -23,6 +23,15 @@
         "EXPO_PUBLIC_DOMAIN": "https://hisaabit-production.up.railway.app"
       }
     },
+    "v2preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "https://REPLACE_WITH_V2_RAILWAY_URL"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
