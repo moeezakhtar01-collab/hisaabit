@@ -111,7 +111,7 @@ export async function addExpense(userId: string, data: { amount: number; categor
  */
 export async function addCapturedExpense(
   userId: string,
-  data: { amount: number; category: string; note: string; date: string; sourceHash: string; sourceLabel?: string | null },
+  data: { amount: number; category: string; note: string; date: string; sourceHash: string; sourceLabel?: string | null; direction?: "out" | "in" },
 ): Promise<Expense | null> {
   const [created] = await db
     .insert(expenses)
@@ -124,6 +124,7 @@ export async function addCapturedExpense(
       source: "notification",
       sourceHash: data.sourceHash,
       sourceLabel: data.sourceLabel ?? null,
+      direction: data.direction ?? "out",
     })
     .onConflictDoNothing({ target: [expenses.userId, expenses.sourceHash] })
     .returning();
@@ -141,6 +142,27 @@ export async function getUserCategories(userId: string): Promise<string[]> {
     .from(expenses)
     .where(eq(expenses.userId, userId));
   return rows.map((r) => r.category).filter((c): c is string => !!c);
+}
+
+/**
+ * The user's evolving category set, split by money-flow direction, so the AI
+ * reuses/creates spending categories for outflows and income/source categories
+ * for inflows — they're conceptually different sets.
+ */
+export async function getUserCategoriesByDirection(
+  userId: string,
+): Promise<{ out: string[]; in: string[] }> {
+  const rows = await db
+    .selectDistinct({ category: expenses.category, direction: expenses.direction })
+    .from(expenses)
+    .where(eq(expenses.userId, userId));
+  const out = new Set<string>();
+  const inn = new Set<string>();
+  for (const r of rows) {
+    if (!r.category) continue;
+    (r.direction === "in" ? inn : out).add(r.category);
+  }
+  return { out: Array.from(out), in: Array.from(inn) };
 }
 
 export async function updateExpenseById(userId: string, expenseId: string, data: { amount: number; category: string; note: string; date: string }): Promise<Expense | null> {

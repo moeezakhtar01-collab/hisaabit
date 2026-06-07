@@ -9,6 +9,8 @@ export interface Expense {
   createdAt: string;
   /** Detected bank/wallet/platform for notification-captured expenses. */
   sourceLabel?: string | null;
+  /** Money flow direction: 'out' = spent/debit, 'in' = received/credit. */
+  direction?: 'out' | 'in';
 }
 
 export interface Budget {

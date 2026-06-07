@@ -42,6 +42,10 @@ export const expenses = pgTable("expenses", {
   // Provenance. v2's only active source is 'notification' (passive capture);
   // 'manual'/'voice' remain for the now-hidden entry paths.
   source: text("source").default("manual").notNull(),
+  // Money flow direction: 'out' = debit/spent (default — all legacy rows are
+  // expenses), 'in' = credit/received. Lets the app track ALL transactions,
+  // not just spending, and split each account into money-out vs money-in.
+  direction: text("direction").default("out").notNull(),
   // Per-transaction fingerprint computed on-device for notification captures
   // (sender + amount + day + normalized text). Null for manual/voice. The
   // unique index below makes re-reading the same notification a no-op.

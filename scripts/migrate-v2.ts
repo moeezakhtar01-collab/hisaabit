@@ -35,6 +35,7 @@ async function main() {
     await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual' NOT NULL`;
     await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS source_hash text`;
     await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS source_label text`;
+    await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS direction text DEFAULT 'out' NOT NULL`;
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS expenses_user_source_hash_idx ON expenses (user_id, source_hash)`;
 
     console.log("✓ v2 schema migration applied");

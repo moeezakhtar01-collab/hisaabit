@@ -13,6 +13,7 @@ import {
   getOrCreateAnonymousUser,
   addCapturedExpense,
   getUserCategories,
+  getUserCategoriesByDirection,
   getUserByEmail,
   getUserById,
   setResetToken,
@@ -273,17 +274,16 @@ function platformFromSender(pkg?: string): string | null {
 async function aiExtractFromNotification(
   raw: { sender?: string; title?: string; text?: string },
   todayStr: string,
-  existingCategories: string[],
-): Promise<{ amount: number; category: string; note: string; date: string; platform: string | null } | null> {
+  outCategories: string[],
+  inCategories: string[],
+): Promise<{ amount: number; category: string; note: string; date: string; platform: string | null; direction: "out" | "in" } | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   const content = `${raw.title || ""}\n${raw.text || ""}`.trim();
   if (!content) return null;
 
   const openai = new OpenAI({ apiKey });
-  const existing = existingCategories.length
-    ? existingCategories.map((c) => `"${c}"`).join(", ")
-    : "(none yet — this is a new user)";
+  const fmt = (arr: string[]) => (arr.length ? arr.map((c) => `"${c}"`).join(", ") : "(none yet)");
 
   const extraction = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -291,13 +291,16 @@ async function aiExtractFromNotification(
     messages: [
       {
         role: "system",
-        content: `You extract a single expense from a Pakistani bank/wallet transaction notification. Today is ${todayStr}.
+        content: `You extract a single transaction from a Pakistani bank/wallet notification. Today is ${todayStr}.
 Respond with ONLY a JSON object: {"amount": number, "category": "string", "note": "short description", "platform": "string", "type": "debit" | "credit" | "none"}.
 - amount: PKR integer. Parse "Rs.2,500", "PKR 1500", "Rs 500.00", "2,500.00".
-- category: the spending category. The user's existing categories are: ${existing}. If one of them clearly fits, return it EXACTLY (same spelling and casing). Otherwise create a concise new category — 1-2 words, Title Case, generic (e.g. "Groceries", "Fuel", "Dining", "Utilities", "Mobile Load", "Transfers", "Shopping"), NEVER the merchant's name.
+- type: "debit" = money LEAVES the account (purchase, payment, sent, withdrawal, bill, transfer out); "credit" = money COMES IN (received, salary, refund, cashback, transfer in, deposit); "none" if this is not a real money transaction or the amount can't be determined.
+- category: a concise category that MATCHES the type.
+    - If "debit" (spending), the user's existing OUT categories are: ${fmt(outCategories)}. Reuse one EXACTLY if it fits, else create a concise spending category (1-2 words, Title Case — e.g. "Groceries", "Fuel", "Dining", "Utilities", "Mobile Load", "Cash Withdrawal", "Shopping").
+    - If "credit" (income), the user's existing IN categories are: ${fmt(inCategories)}. Reuse one EXACTLY if it clearly fits, else create a concise income/source category (e.g. "Salary", "Transfer", "Refund", "Cashback", "Deposit"). A one-off amount received from a person/sender is "Transfer", NOT "Salary"; reserve "Salary" for regular payroll credits.
+    - NEVER use the merchant's or a person's name as the category.
 - note: brief English description; include the merchant/counterparty if present.
-- platform: the bank/wallet/app this notification is from (e.g. "HBL", "JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Meezan", "UBL", "Alfa"). Use the name shown in the notification; null if unclear.
-- type: "debit" when money LEAVES the account (purchase, payment, sent, withdrawal, bill, transfer out); "credit" for incoming money; "none" if this is not a financial transaction or the amount can't be determined.`,
+- platform: the bank/wallet/app this is from (e.g. "HBL", "JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Meezan", "UBL", "Alfa"). Use the name shown; null if unclear.`,
       },
       { role: "user", content },
     ],
@@ -311,13 +314,14 @@ Respond with ONLY a JSON object: {"amount": number, "category": "string", "note"
   } catch {
     obj = null;
   }
-  if (!obj || obj.type !== "debit") return null;
+  if (!obj || (obj.type !== "debit" && obj.type !== "credit")) return null;
 
   const amount = Math.round(Number(obj.amount));
   if (!(amount > 0 && amount <= 100_000_000)) return null;
   const note = typeof obj.note === "string" ? obj.note.slice(0, 100) : "";
   const platform = typeof obj.platform === "string" && obj.platform.trim() ? obj.platform.trim().slice(0, 30) : null;
-  return { amount, category: sanitizeCategory(obj.category), note, date: todayStr, platform };
+  const direction: "out" | "in" = obj.type === "credit" ? "in" : "out";
+  return { amount, category: sanitizeCategory(obj.category), note, date: todayStr, platform, direction };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1664,11 +1668,11 @@ Important:
           ? localDate
           : new Date().toISOString().split("T")[0];
 
-      const existingCategories = await getUserCategories(user.id);
-      let expenseData: { amount: number; category: string; note: string; date: string; platform?: string | null } | null = null;
+      const cats = await getUserCategoriesByDirection(user.id);
+      let expenseData: { amount: number; category: string; note: string; date: string; platform?: string | null; direction?: "out" | "in" } | null = null;
 
       if (parsed && typeof parsed.amount === "number") {
-        // On-device path — trust but validate. Category is free-form now.
+        // On-device path — trust but validate. Direction defaults to 'out'.
         const amount = Math.round(parsed.amount);
         if (!(amount > 0 && amount <= 100_000_000)) {
           return res.json({ saved: false, reason: "invalid amount" });
@@ -1676,11 +1680,11 @@ Important:
         const date =
           typeof parsed.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : todayStr;
         const note = typeof parsed.note === "string" ? parsed.note.slice(0, 100) : "";
-        expenseData = { amount, category: sanitizeCategory(parsed.category), note, date };
+        expenseData = { amount, category: sanitizeCategory(parsed.category), note, date, direction: "out" };
       } else if (raw && (typeof raw.text === "string" || typeof raw.title === "string")) {
-        // AI path — extracts amount + a learned/created category.
-        expenseData = await aiExtractFromNotification(raw, todayStr, existingCategories);
-        if (!expenseData) return res.json({ saved: false, reason: "not a debit / unparseable" });
+        // AI path — amount + learned category + direction (in/out).
+        expenseData = await aiExtractFromNotification(raw, todayStr, cats.out, cats.in);
+        if (!expenseData) return res.json({ saved: false, reason: "not a transaction / unparseable" });
       } else {
         return res.status(400).json({ error: "Provide `parsed` or `raw`" });
       }
@@ -1696,6 +1700,7 @@ Important:
         date: expenseData.date,
         sourceHash: hash,
         sourceLabel,
+        direction: expenseData.direction ?? "out",
       });
       return res.json({ saved: !!expense, duplicate: !expense, expense: expense || undefined });
     } catch (err) {
