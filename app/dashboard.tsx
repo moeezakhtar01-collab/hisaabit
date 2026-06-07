@@ -23,6 +23,8 @@ import {
   getExpensesForWeek,
   getTotalExpenses,
   getWeekDateRange,
+  sumByDirection,
+  computeAccounts,
   formatPKR,
   formatDate,
   categoryDisplayLabel,
@@ -82,6 +84,9 @@ export default function DashboardScreen() {
   const weekExpenses = getExpensesForWeek(expenses);
   const weekTotal = getTotalExpenses(weekExpenses);
   const recent = weekExpenses.slice(0, 8);
+  const weekOut = sumByDirection(weekExpenses, 'out');
+  const weekIn = sumByDirection(weekExpenses, 'in');
+  const accounts = computeAccounts(weekExpenses);
   // What the app has learned: distinct bank/wallet platforms seen in captures.
   const sources = Array.from(new Set(expenses.map((e) => e.sourceLabel).filter(Boolean))) as string[];
 
@@ -131,13 +136,21 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Hero: spent this week */}
+        {/* Hero: this week's money flow */}
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.hero}>
-          <Text style={styles.heroLabel}>Spent this week</Text>
-          <Text style={styles.heroAmount} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(weekTotal)}</Text>
-          <Text style={styles.heroSub}>
-            {week.label}  ·  {weekExpenses.length} {weekExpenses.length === 1 ? 'transaction' : 'transactions'} caught
-          </Text>
+          <Text style={styles.heroLabel}>This week · {week.label}</Text>
+          <View style={styles.flowRow}>
+            <View style={styles.flowHalf}>
+              <Text style={styles.flowCap}>Money Out</Text>
+              <Text style={[styles.flowAmt, { color: colors.danger }]} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(weekOut)}</Text>
+            </View>
+            <View style={styles.flowSep} />
+            <View style={styles.flowHalf}>
+              <Text style={styles.flowCap}>Money In</Text>
+              <Text style={[styles.flowAmt, { color: colors.success }]} adjustsFontSizeToFit numberOfLines={1}>{formatPKR(weekIn)}</Text>
+            </View>
+          </View>
+          <Text style={styles.heroSub}>{weekExpenses.length} {weekExpenses.length === 1 ? 'transaction' : 'transactions'}</Text>
         </Animated.View>
 
         {/* Weekly summary entry (the payoff) */}
@@ -155,6 +168,35 @@ export default function DashboardScreen() {
             <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
           </Pressable>
         </Animated.View>
+
+        {/* Accounts — medium → in/out (tap to drill into categories) */}
+        {accounts.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(210).duration(450)} style={styles.feedSection}>
+            <Text style={styles.feedTitle}>Accounts</Text>
+            <View style={styles.feedCard}>
+              {accounts.map((a, i) => (
+                <Pressable
+                  key={a.label}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/account-detail?label=${encodeURIComponent(a.label)}` as any); }}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, pressed && { opacity: 0.7 }]}
+                >
+                  <View style={[styles.rowIcon, { backgroundColor: catColor(a.label, colors) + '1A' }]}>
+                    <Ionicons name="wallet-outline" size={18} color={catColor(a.label, colors)} />
+                  </View>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowNote} numberOfLines={1}>{a.label}</Text>
+                    <Text style={styles.rowMeta}>{a.count} {a.count === 1 ? 'transaction' : 'transactions'}</Text>
+                  </View>
+                  <View style={styles.acctAmounts}>
+                    <Text style={[styles.acctOut, { color: colors.danger }]}>− {formatPKR(a.out)}</Text>
+                    {a.in > 0 && <Text style={[styles.acctIn, { color: colors.success }]}>+ {formatPKR(a.in)}</Text>}
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        )}
 
         {/* Recent captures (trust feed) */}
         <Animated.View entering={FadeInDown.delay(240).duration(450)} style={styles.feedSection}>
@@ -196,7 +238,9 @@ export default function DashboardScreen() {
                     <Text style={styles.rowNote} numberOfLines={1}>{e.note?.trim() || categoryDisplayLabel(e.category)}</Text>
                     <Text style={styles.rowMeta}>{categoryDisplayLabel(e.category)} · {formatDate(e.date)}</Text>
                   </View>
-                  <Text style={styles.rowAmount}>{formatPKR(e.amount)}</Text>
+                  <Text style={[styles.rowAmount, e.direction === 'in' && { color: colors.success }]}>
+                    {e.direction === 'in' ? '+ ' : ''}{formatPKR(e.amount)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -259,6 +303,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   rowNote: { fontSize: 14.5, fontFamily: 'Inter_600SemiBold', color: colors.text },
   rowMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.textSecondary },
   rowAmount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.text },
+  flowRow: { flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', marginTop: 8, marginBottom: 4 },
+  flowHalf: { flex: 1, alignItems: 'center', gap: 4 },
+  flowSep: { width: 1, alignSelf: 'stretch', backgroundColor: colors.border, marginVertical: 2 },
+  flowCap: { fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+  flowAmt: { fontSize: 24, fontFamily: 'Inter_700Bold', paddingHorizontal: 6 },
+  acctAmounts: { alignItems: 'flex-end' },
+  acctOut: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  acctIn: { fontSize: 12, fontFamily: 'Inter_600SemiBold', marginTop: 1 },
   empty: {
     backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border,
     padding: 28, alignItems: 'center', gap: 8,

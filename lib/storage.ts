@@ -234,3 +234,51 @@ export function getExpensesForToday(expenses: Expense[]): Expense[] {
   const today = new Date();
   return expenses.filter(e => parseLocalDate(e.date).toDateString() === today.toDateString());
 }
+
+// ─── Money-flow helpers (transactions, in/out, accounts) ─────────
+
+export type Direction = 'out' | 'in';
+
+function dirOf(e: Expense): Direction {
+  return e.direction === 'in' ? 'in' : 'out';
+}
+
+export function sumByDirection(txns: Expense[], dir: Direction): number {
+  return txns.filter(e => dirOf(e) === dir).reduce((s, e) => s + e.amount, 0);
+}
+
+export interface AccountSummary {
+  label: string;   // sourceLabel (HBL, JazzCash…) or 'Other'
+  out: number;     // money spent/sent from this account
+  in: number;      // money received into this account
+  count: number;
+}
+
+/** Group transactions by account/medium with money-out + money-in totals. */
+export function computeAccounts(txns: Expense[]): AccountSummary[] {
+  const map = new Map<string, AccountSummary>();
+  for (const e of txns) {
+    const label = e.sourceLabel?.trim() || 'Other';
+    let a = map.get(label);
+    if (!a) { a = { label, out: 0, in: 0, count: 0 }; map.set(label, a); }
+    if (dirOf(e) === 'in') a.in += e.amount; else a.out += e.amount;
+    a.count += 1;
+  }
+  return Array.from(map.values()).sort((x, y) => (y.out + y.in) - (x.out + x.in));
+}
+
+export interface CategoryTotal { category: string; amount: number; count: number; }
+
+/** Category breakdown (desc) for one direction. */
+export function categoryBreakdown(txns: Expense[], dir: Direction): CategoryTotal[] {
+  const map = new Map<string, { amount: number; count: number }>();
+  for (const e of txns.filter(x => dirOf(x) === dir)) {
+    const m = map.get(e.category) || { amount: 0, count: 0 };
+    m.amount += e.amount;
+    m.count += 1;
+    map.set(e.category, m);
+  }
+  return Array.from(map.entries())
+    .map(([category, v]) => ({ category, amount: v.amount, count: v.count }))
+    .sort((a, b) => b.amount - a.amount);
+}
