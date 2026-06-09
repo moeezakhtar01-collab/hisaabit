@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Alert,
   Platform,
   RefreshControl,
   AppState,
@@ -20,6 +21,7 @@ import type { ThemeColors } from '@/constants/colors';
 import {
   Expense,
   getExpenses,
+  deleteExpense,
   getExpensesForWeek,
   getTotalExpenses,
   getWeekDateRange,
@@ -80,10 +82,27 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [load]);
 
+  // Auto-save isn't perfect, so let the user remove a wrongly-captured txn.
+  const handleDelete = useCallback((e: Expense) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Remove this transaction?',
+      `${e.note?.trim() || categoryDisplayLabel(e.category)} · ${formatPKR(e.amount)}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => { try { await deleteExpense(e.id); await load(); } catch {} },
+        },
+      ],
+    );
+  }, [load]);
+
   const week = getWeekDateRange();
   const weekExpenses = getExpensesForWeek(expenses);
   const weekTotal = getTotalExpenses(weekExpenses);
-  const recent = weekExpenses.slice(0, 8);
+  const recent = weekExpenses.slice(0, 15);
   const weekOut = sumByDirection(weekExpenses, 'out');
   const weekIn = sumByDirection(weekExpenses, 'in');
   const accounts = computeAccounts(weekExpenses);
@@ -230,7 +249,11 @@ export default function DashboardScreen() {
           ) : (
             <View style={styles.feedCard}>
               {recent.map((e, i) => (
-                <View key={e.id} style={[styles.row, i > 0 && styles.rowBorder]}>
+                <Pressable
+                  key={e.id}
+                  onPress={() => handleDelete(e)}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.rowBorder, pressed && { opacity: 0.6 }]}
+                >
                   <View style={[styles.rowIcon, { backgroundColor: catColor(e.category, colors) + '1A' }]}>
                     <Ionicons name={getCategoryIcon(e.category) as any} size={18} color={catColor(e.category, colors)} />
                   </View>
@@ -241,7 +264,7 @@ export default function DashboardScreen() {
                   <Text style={[styles.rowAmount, e.direction === 'in' && { color: colors.success }]}>
                     {e.direction === 'in' ? '+ ' : ''}{formatPKR(e.amount)}
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           )}

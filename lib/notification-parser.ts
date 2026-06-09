@@ -87,10 +87,31 @@ function hay(n: NotificationInput): string {
   return `${n.title} ${n.text}`.toLowerCase();
 }
 
-/** Cheap gate before spending an AI call: is this plausibly a transaction? */
+// Strong promotional/marketing signals. Wallet/telco apps (JazzCash, Easypaisa…)
+// send plenty of these, so a package match alone isn't enough. If a notification
+// has a promo signal AND no completed-transaction verb, it's an ad — skip it so
+// it never even leaves the device. Conservative on purpose: when unsure we let
+// it through to the AI, which is the precise arbiter.
+const PROMO_WORDS = [
+  'offer', 'bonus', 'discount', 'sale', ' win ', 'lucky draw', 'congratulations',
+  'subscribe', 'voucher', 'reward', 'free', ' gb', ' mb', 'data bundle', 'minutes',
+  'for rs', 'only rs', 'starting rs', 'dial *', 'promo', 'limited time', 'enjoy', 'avail',
+];
+const TXN_VERBS = [
+  'debit', 'credit', 'spent', 'sent', 'received', 'paid', 'withdraw', 'transfer',
+  'purchase', 'deducted', 'charged', 'transaction', 'txn',
+];
+
+function looksPromotional(h: string): boolean {
+  if (!PROMO_WORDS.some((w) => h.includes(w))) return false;
+  return !TXN_VERBS.some((w) => h.includes(w));
+}
+
+/** Cheap gate before spending an AI call: is this plausibly a real transaction? */
 export function looksFinancial(n: NotificationInput): boolean {
-  if (FINANCIAL_PACKAGES[n.app]) return true;
   const h = hay(n);
+  if (looksPromotional(h)) return false; // obvious ad — drop it, even from wallet apps
+  if (FINANCIAL_PACKAGES[n.app]) return true;
   const hasAmount = AMOUNT_RE.test(h);
   const hasWord = FINANCIAL_WORDS.some((w) => h.includes(w));
   return hasAmount && hasWord;
