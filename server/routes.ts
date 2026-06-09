@@ -291,16 +291,35 @@ async function aiExtractFromNotification(
     messages: [
       {
         role: "system",
-        content: `You extract a single transaction from a Pakistani bank/wallet notification. Today is ${todayStr}.
+        content: `You read a Pakistani bank/wallet notification, decide whether it reports a REAL completed transaction on the user's own account, and (only then) extract it. Today is ${todayStr}.
+
+CRITICAL — count ONLY money that has ACTUALLY MOVED in or out of the user's account. Use type "none" (it gets discarded) for anything that is NOT a completed transaction, including:
+- promotional offers / ads / discounts / sales (e.g. "Get 1000 GB for Rs 100", "Recharge Rs 500 & get 50% bonus", "Eid offer", "Win Rs 10,000")
+- data / call / SMS / package / bundle offers, or subscription/activation prompts
+- bill reminders or due notices where NO payment was made yet (e.g. "Your bill of Rs 3,000 is due on the 15th")
+- low-balance alerts, balance inquiries, mini-statements, account-opening or KYC messages
+- OTP / verification codes, login or security alerts
+- any marketing, informational, or reminder message
+A price or an offer ("for Rs X", "only Rs X", "at Rs X", "starting Rs X", "get ... for Rs X") is NOT a transaction. A real transaction uses a COMPLETED-action word — debited, credited, spent, sent, received, paid, withdrawn, transferred — and usually also shows an available balance, a transaction ID/reference, or a date/time. When unsure, prefer "none".
+
 Respond with ONLY a JSON object: {"amount": number, "category": "string", "note": "short description", "platform": "string", "type": "debit" | "credit" | "none"}.
-- amount: PKR integer. Parse "Rs.2,500", "PKR 1500", "Rs 500.00", "2,500.00".
-- type: "debit" = money LEAVES the account (purchase, payment, sent, withdrawal, bill, transfer out); "credit" = money COMES IN (received, salary, refund, cashback, transfer in, deposit); "none" if this is not a real money transaction or the amount can't be determined.
+- type: "debit" = money LEFT the account (purchase, payment, sent, withdrawal, bill paid, transfer out). "credit" = money CAME IN (received, salary, refund, actual cashback credited, transfer in, deposit). "none" = not a real completed transaction (see above) or the amount can't be determined.
+- amount: PKR integer of the amount that actually moved. Parse "Rs.2,500", "PKR 1500", "Rs 500.00", "2,500.00".
 - category: a concise category that MATCHES the type.
     - If "debit" (spending), the user's existing OUT categories are: ${fmt(outCategories)}. Reuse one EXACTLY if it fits, else create a concise spending category (1-2 words, Title Case — e.g. "Groceries", "Fuel", "Dining", "Utilities", "Mobile Load", "Cash Withdrawal", "Shopping").
     - If "credit" (income), the user's existing IN categories are: ${fmt(inCategories)}. Reuse one EXACTLY if it clearly fits, else create a concise income/source category (e.g. "Salary", "Transfer", "Refund", "Cashback", "Deposit"). A one-off amount received from a person/sender is "Transfer", NOT "Salary"; reserve "Salary" for regular payroll credits.
     - NEVER use the merchant's or a person's name as the category.
 - note: brief English description; include the merchant/counterparty if present.
-- platform: the bank/wallet/app this is from (e.g. "HBL", "JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Meezan", "UBL", "Alfa"). Use the name shown; null if unclear.`,
+- platform: the bank/wallet/app this is from (e.g. "HBL", "JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Meezan", "UBL", "Alfa"). Use the name shown; null if unclear.
+
+Examples:
+- "Rs 1,500 spent at Imtiaz Super Market via debit card. Avbl bal Rs 8,200." => debit
+- "Your salary of Rs 150,000 has been credited to your account." => credit
+- "You have received Rs 2,000 from Ahmed Khan." => credit
+- "Get 1000 GB for just Rs 100! Subscribe now." => none
+- "Recharge Rs 500 and get 50% extra balance." => none
+- "Your bill of Rs 3,000 is due on June 15." => none
+- "Your OTP is 123456." => none`,
       },
       { role: "user", content },
     ],
